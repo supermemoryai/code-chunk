@@ -133,28 +133,3 @@ export async function chunk(
 ): Promise<Chunk[]> {
 	return Effect.runPromise(chunkEffect(filepath, code, options))
 }
-
-/**
- * Chunk source code synchronously (blocking)
- *
- * **WARNING: Not yet implemented.** This function will throw an error.
- * The chunking pipeline requires async WASM loading which cannot run synchronously.
- * Use the async `chunk()` function instead.
- *
- * @param _filepath - The file path (unused)
- * @param _code - The source code (unused)
- * @param _options - Optional chunking configuration (unused)
- * @throws Error Always throws - sync chunking is not supported
- *
- * @deprecated Use `chunk()` instead. This will be implemented in a future version
- * if there's demand for sync operation with pre-initialized parsers.
- */
-export function chunkSync(
-	_filepath: string,
-	_code: string,
-	_options?: ChunkOptions,
-): Chunk[] {
-	throw new Error(
-		'chunkSync is not supported. The chunking pipeline requires async WASM loading. Use chunk() instead.',
-	)
-}

@@ -14,18 +14,28 @@ export interface MergeOptions {
  * @param windows - Generator of windows to merge
  * @param options - Merge options
  * @yields Merged ASTWindow objects
- *
- * TODO: Implement window merging
  */
 export function* mergeAdjacentWindows(
-	_windows: Generator<ASTWindow> | Iterable<ASTWindow>,
-	_options: MergeOptions,
+	windows: Generator<ASTWindow> | Iterable<ASTWindow>,
+	options: MergeOptions,
 ): Generator<ASTWindow> {
-	// TODO: Implement adjacent window merging
-	// 1. Accumulate windows while they fit
-	// 2. When adding would exceed maxSize, yield accumulated and start fresh
-	// 3. Merge nodes and ancestors from accumulated windows
-	yield* []
+	const { maxSize } = options
+	let current: ASTWindow | null = null
+
+	for (const window of windows) {
+		if (!current) {
+			current = window
+		} else if (canMerge(current, window, maxSize)) {
+			current = mergeWindows(current, window)
+		} else {
+			yield current
+			current = window
+		}
+	}
+
+	if (current) {
+		yield current
+	}
 }
 
 /**
