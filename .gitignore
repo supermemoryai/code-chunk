@@ -18,3 +18,5 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 .turbo
+todo.md
+plan.md
