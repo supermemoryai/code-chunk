@@ -85,8 +85,15 @@ export const rebuildText = (window: ASTWindow, code: string): RebuiltText => {
 
 	// Normal case: slice from first node start to last node end
 	// Use startPosition/endPosition from nodes for optimized line calculation
-	const firstNode = window.nodes[0]!
-	const lastNode = window.nodes[window.nodes.length - 1]!
+	const firstNode = window.nodes[0]
+	const lastNode = window.nodes[window.nodes.length - 1]
+	if (!firstNode || !lastNode) {
+		return {
+			text: '',
+			byteRange: { start: 0, end: 0 },
+			lineRange: { start: 0, end: 0 },
+		}
+	}
 
 	const startByte = firstNode.startIndex
 	const endByte = lastNode.endIndex
@@ -114,12 +121,26 @@ const rebuildFromLineRanges = (
 	window: ASTWindow,
 	code: string,
 ): RebuiltText => {
-	const lineRanges = window.lineRanges!
+	const lineRanges = window.lineRanges
+	if (!lineRanges || lineRanges.length === 0) {
+		return {
+			text: '',
+			byteRange: { start: 0, end: 0 },
+			lineRange: { start: 0, end: 0 },
+		}
+	}
 	const lineStarts = buildLineStartsTable(code)
 
 	// Get the overall line range
-	const firstRange = lineRanges[0]!
-	const lastRange = lineRanges[lineRanges.length - 1]!
+	const firstRange = lineRanges[0]
+	const lastRange = lineRanges[lineRanges.length - 1]
+	if (!firstRange || !lastRange) {
+		return {
+			text: '',
+			byteRange: { start: 0, end: 0 },
+			lineRange: { start: 0, end: 0 },
+		}
+	}
 	const startLine = firstRange.start
 	const endLine = lastRange.end
 
@@ -127,7 +148,9 @@ const rebuildFromLineRanges = (
 	const startByte = lineStarts[startLine] ?? 0
 	// End byte is start of line after endLine, or end of file
 	const endByte =
-		endLine + 1 < lineStarts.length ? lineStarts[endLine + 1]! : code.length
+		endLine + 1 < lineStarts.length
+			? (lineStarts[endLine + 1] ?? code.length)
+			: code.length
 
 	const text = code.slice(startByte, endByte)
 
