@@ -1,4 +1,4 @@
-import { Effect } from 'effect'
+import { Chunk as EffectChunk, Effect, Stream } from 'effect'
 import {
 	chunk as chunkInternal,
 	streamChunks as streamChunksInternal,
@@ -7,7 +7,14 @@ import { extractEntities } from './extract'
 import { parseCode } from './parser'
 import { detectLanguage } from './parser/languages'
 import { buildScopeTree } from './scope'
-import type { Chunk, ChunkOptions, Language } from './types'
+import type {
+	Chunk,
+	ChunkOptions,
+	ExtractedEntity,
+	Language,
+	ParseResult,
+	ScopeTree,
+} from './types'
 
 /**
  * Error thrown when chunking fails
@@ -139,6 +146,114 @@ export async function chunk(
 }
 
 /**
+ * Prepare the chunking pipeline (parse, extract, build scope tree)
+ * Returns the parsed result and scope tree needed for chunking
+ */
+const prepareChunking = (
+	filepath: string,
+	code: string,
+	options?: ChunkOptions,
+): Effect.Effect<
+	{ parseResult: ParseResult; scopeTree: ScopeTree; language: Language },
+	ChunkingError | UnsupportedLanguageError
+> => {
+	return Effect.gen(function* () {
+		// Step 1: Detect language (or use override)
+		const language: Language | null =
+			options?.language ?? detectLanguage(filepath)
+
+		if (!language) {
+			return yield* Effect.fail(new UnsupportedLanguageError(filepath))
+		}
+
+		// Step 2: Parse the code
+		const parseResult = yield* Effect.tryPromise({
+			try: () => parseCode(code, language),
+			catch: (error: unknown) =>
+				new ChunkingError('Failed to parse code', error),
+		})
+
+		// Step 3: Extract entities from AST
+		const entities = yield* Effect.mapError(
+			extractEntities(parseResult.tree.rootNode, language, code),
+			(error: unknown) =>
+				new ChunkingError('Failed to extract entities', error),
+		)
+
+		// Step 4: Build scope tree
+		const scopeTree = yield* Effect.mapError(
+			buildScopeTree(entities),
+			(error: unknown) =>
+				new ChunkingError('Failed to build scope tree', error),
+		)
+
+		return { parseResult, scopeTree, language }
+	})
+}
+
+/**
+ * Create an Effect Stream that yields chunks
+ *
+ * This is the Effect-native streaming API. Use this if you're working
+ * within the Effect ecosystem and want full composability.
+ *
+ * @param filepath - The file path (used for language detection)
+ * @param code - The source code to chunk
+ * @param options - Optional chunking configuration
+ * @returns Effect Stream of chunks with context
+ *
+ * @example
+ * ```ts
+ * import { chunkStreamEffect } from 'astchunk'
+ * import { Effect, Stream } from 'effect'
+ *
+ * const program = Stream.runForEach(
+ *   chunkStreamEffect('src/utils.ts', sourceCode),
+ *   (chunk) => Effect.log(chunk.text)
+ * )
+ *
+ * Effect.runPromise(program)
+ * ```
+ */
+export const chunkStreamEffect = (
+	filepath: string,
+	code: string,
+	options?: ChunkOptions,
+): Stream.Stream<Chunk, ChunkingError | UnsupportedLanguageError> => {
+	return Stream.unwrap(
+		Effect.map(prepareChunking(filepath, code, options), (prepared) => {
+			const { parseResult, scopeTree, language } = prepared
+
+			// Create stream from the internal generator
+			return Stream.fromAsyncIterable(
+				streamChunksInternal(
+					parseResult.tree.rootNode,
+					code,
+					scopeTree,
+					language,
+					options,
+					filepath,
+				),
+				(error) => new ChunkingError('Stream iteration failed', error),
+			).pipe(
+				// Attach parse error to chunks if present
+				Stream.map((chunk) =>
+					parseResult.error
+						? {
+								...chunk,
+								context: {
+									...chunk.context,
+									parseError: parseResult.error,
+								},
+							}
+						: chunk,
+				),
+			)
+		}),
+	)
+}
+
+/**
  * Stream source code chunks as they are generated
  *
  * This function returns an async generator that yields chunks one at a time,
@@ -154,9 +269,9 @@ export async function chunk(
  *
  * @example
  * ```ts
- * import { stream } from 'astchunk'
+ * import { chunkStream } from 'astchunk'
  *
- * for await (const chunk of stream('src/utils.ts', sourceCode)) {
+ * for await (const chunk of chunkStream('src/utils.ts', sourceCode)) {
  *   console.log(chunk.text, chunk.context)
  * }
  * ```
@@ -166,49 +281,14 @@ export async function* chunkStream(
 	code: string,
 	options?: ChunkOptions,
 ): AsyncGenerator<Chunk> {
-	// Detect language (or use override)
-	const language: Language | null =
-		options?.language ?? detectLanguage(filepath)
+	// Prepare the chunking pipeline
+	const prepared = await Effect.runPromise(
+		prepareChunking(filepath, code, options),
+	)
 
-	if (!language) {
-		throw new UnsupportedLanguageError(filepath)
-	}
+	const { parseResult, scopeTree, language } = prepared
 
-	// Parse the code
-	let parseResult: Awaited<ReturnType<typeof parseCode>>
-	try {
-		parseResult = await parseCode(code, language)
-	} catch (error) {
-		throw new ChunkingError('Failed to parse code', error)
-	}
-
-	// Extract entities from AST
-	let entities: Awaited<
-		ReturnType<typeof extractEntities> extends Effect.Effect<infer A, unknown>
-			? A
-			: never
-	>
-	try {
-		entities = await Effect.runPromise(
-			extractEntities(parseResult.tree.rootNode, language, code),
-		)
-	} catch (error) {
-		throw new ChunkingError('Failed to extract entities', error)
-	}
-
-	// Build scope tree
-	let scopeTree: Awaited<
-		ReturnType<typeof buildScopeTree> extends Effect.Effect<infer A, unknown>
-			? A
-			: never
-	>
-	try {
-		scopeTree = await Effect.runPromise(buildScopeTree(entities))
-	} catch (error) {
-		throw new ChunkingError('Failed to build scope tree', error)
-	}
-
-	// Stream chunks from the internal generator, passing filepath for context
+	// Stream chunks from the internal generator
 	const chunkGenerator = streamChunksInternal(
 		parseResult.tree.rootNode,
 		code,

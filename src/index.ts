@@ -13,6 +13,7 @@ export {
 	ChunkingError,
 	chunk,
 	chunkStream,
+	chunkStreamEffect,
 	UnsupportedLanguageError,
 } from './chunk'
 
