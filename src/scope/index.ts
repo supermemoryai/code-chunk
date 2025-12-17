@@ -1,5 +1,14 @@
 import { Effect } from 'effect'
 import type { ExtractedEntity, ScopeTree } from '../types'
+import {
+	buildScopeTreeFromEntities,
+	createScopeNode,
+	findParentNode,
+	findScopeAtOffset,
+	flattenScopeTree,
+	getAncestorChain,
+	rangeContains,
+} from './tree'
 
 /**
  * Error when building scope tree fails
@@ -17,34 +26,45 @@ export class ScopeError {
  *
  * @param entities - The extracted entities from the AST
  * @returns Effect yielding the scope tree
- *
- * TODO: Implement scope tree construction
  */
 export const buildScopeTree = (
 	entities: ExtractedEntity[],
 ): Effect.Effect<ScopeTree, ScopeError> => {
-	// TODO: Implement scope tree building
-	// 1. Sort entities by byte range
-	// 2. Build tree structure based on containment
-	// 3. Separate imports/exports
-	// 4. Build parent-child relationships
-	return Effect.succeed({
-		root: [],
-		imports: entities.filter((e) => e.type === 'import'),
-		exports: entities.filter((e) => e.type === 'export'),
-		allEntities: entities,
+	return Effect.try({
+		try: () => buildScopeTreeFromEntities(entities),
+		catch: (error) =>
+			new ScopeError(
+				`Failed to build scope tree: ${error instanceof Error ? error.message : String(error)}`,
+				error,
+			),
 	})
 }
 
 /**
  * Sync version of buildScopeTree for public API
+ * Returns an empty tree on error
  */
 export const buildScopeTreeSync = (entities: ExtractedEntity[]): ScopeTree => {
-	// TODO: Implement sync wrapper
-	return {
-		root: [],
-		imports: entities.filter((e) => e.type === 'import'),
-		exports: entities.filter((e) => e.type === 'export'),
-		allEntities: entities,
+	try {
+		return buildScopeTreeFromEntities(entities)
+	} catch {
+		// Return empty tree on error
+		return {
+			root: [],
+			imports: [],
+			exports: [],
+			allEntities: entities,
+		}
 	}
+}
+
+// Re-export utilities from tree.ts for public API
+export {
+	buildScopeTreeFromEntities,
+	createScopeNode,
+	findParentNode,
+	findScopeAtOffset,
+	flattenScopeTree,
+	getAncestorChain,
+	rangeContains,
 }
