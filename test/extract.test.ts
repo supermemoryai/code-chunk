@@ -6,6 +6,7 @@ import {
 	extractByNodeTypes,
 	extractEntitiesAsync,
 	extractEntitiesSync,
+	extractImportSource,
 	getEntityType,
 	loadQuery,
 	loadQuerySync,
@@ -834,5 +835,129 @@ export default function defaultFn() { return 2 }`
 		)
 
 		expect(entities).toEqual([])
+	})
+})
+
+// ============================================================================
+// Import Source Extraction Tests
+// ============================================================================
+
+describe('extractImportSource', () => {
+	test('extracts TypeScript named import source', async () => {
+		const code = `import { foo, bar } from 'my-module'`
+		const result = await parseCode(code, 'typescript')
+		const importNode = result.tree.rootNode.namedChildren[0]
+
+		const source = extractImportSource(importNode, 'typescript')
+		expect(source).toBe('my-module')
+	})
+
+	test('extracts TypeScript default import source', async () => {
+		const code = `import React from 'react'`
+		const result = await parseCode(code, 'typescript')
+		const importNode = result.tree.rootNode.namedChildren[0]
+
+		const source = extractImportSource(importNode, 'typescript')
+		expect(source).toBe('react')
+	})
+
+	test('extracts TypeScript namespace import source', async () => {
+		const code = `import * as path from 'path'`
+		const result = await parseCode(code, 'typescript')
+		const importNode = result.tree.rootNode.namedChildren[0]
+
+		const source = extractImportSource(importNode, 'typescript')
+		expect(source).toBe('path')
+	})
+
+	test('extracts JavaScript import source', async () => {
+		const code = `import { useState } from 'react'`
+		const result = await parseCode(code, 'javascript')
+		const importNode = result.tree.rootNode.namedChildren[0]
+
+		const source = extractImportSource(importNode, 'javascript')
+		expect(source).toBe('react')
+	})
+
+	test('extracts Python from import source', async () => {
+		const code = `from collections import OrderedDict`
+		const result = await parseCode(code, 'python')
+		const importNode = result.tree.rootNode.namedChildren[0]
+
+		const source = extractImportSource(importNode, 'python')
+		expect(source).toBe('collections')
+	})
+
+	test('extracts Python simple import source', async () => {
+		const code = `import os`
+		const result = await parseCode(code, 'python')
+		const importNode = result.tree.rootNode.namedChildren[0]
+
+		const source = extractImportSource(importNode, 'python')
+		expect(source).toBe('os')
+	})
+
+	test('extracts Python dotted import source', async () => {
+		const code = `from os.path import join`
+		const result = await parseCode(code, 'python')
+		const importNode = result.tree.rootNode.namedChildren[0]
+
+		const source = extractImportSource(importNode, 'python')
+		expect(source).toBe('os.path')
+	})
+
+	test('extracts Rust use declaration source', async () => {
+		const code = `use std::collections::HashMap;`
+		const result = await parseCode(code, 'rust')
+		const useNode = result.tree.rootNode.namedChildren[0]
+
+		const source = extractImportSource(useNode, 'rust')
+		expect(source).toContain('std::collections')
+	})
+
+	test('extracts Go import source', async () => {
+		const code = `package main
+
+import "fmt"`
+		const result = await parseCode(code, 'go')
+		const importNode = result.tree.rootNode.namedChildren.find(
+			(n) => n.type === 'import_declaration',
+		)
+
+		if (importNode) {
+			const source = extractImportSource(importNode, 'go')
+			expect(source).toBe('fmt')
+		}
+	})
+
+	test('extracts Java import source', async () => {
+		const code = `import java.util.List;`
+		const result = await parseCode(code, 'java')
+		const importNode = result.tree.rootNode.namedChildren[0]
+
+		const source = extractImportSource(importNode, 'java')
+		expect(source).toBe('java.util.List')
+	})
+
+	test('import entities have source field populated', async () => {
+		const code = `import { Effect } from 'effect'
+import type { Option } from 'effect/Option'
+
+function test() { return 1 }`
+		const result = await parseCode(code, 'typescript')
+		const entities = await extractEntitiesAsync(
+			result.tree.rootNode,
+			'typescript',
+			code,
+		)
+
+		const imports = entities.filter((e) => e.type === 'import')
+		expect(imports.length).toBeGreaterThan(0)
+
+		// Each import should have source populated
+		for (const imp of imports) {
+			expect(imp.source).toBeDefined()
+			expect(imp.source).not.toBe('')
+		}
 	})
 })

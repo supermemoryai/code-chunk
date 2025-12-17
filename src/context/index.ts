@@ -99,61 +99,15 @@ export const getEntitiesInRange = (
 }
 
 /**
- * Parse import source from an import entity
+ * Get import source from an import entity
  *
- * Extracts the source module path from import signatures like:
- * - `import { foo } from 'module'`
- * - `import foo from 'module'`
- * - `import * as foo from 'module'`
+ * Uses the pre-extracted source from AST parsing (works for all languages).
  *
  * @param entity - The import entity
  * @returns The import source or empty string if not found
  */
-const parseImportSource = (entity: ExtractedEntity): string => {
-	// Try to extract from signature using regex
-	// Common patterns: from 'source' or from "source"
-	const fromMatch = entity.signature.match(/from\s+['"]([^'"]+)['"]/)
-	if (fromMatch?.[1]) {
-		return fromMatch[1]
-	}
-
-	// For CommonJS style: require('source')
-	const requireMatch = entity.signature.match(/require\s*\(\s*['"]([^'"]+)['"]/)
-	if (requireMatch?.[1]) {
-		return requireMatch[1]
-	}
-
-	return ''
-}
-
-/**
- * Check if an import is a default import
- *
- * @param entity - The import entity
- * @returns Whether this is a default import
- */
-const isDefaultImport = (entity: ExtractedEntity): boolean => {
-	// Default import patterns:
-	// import foo from 'module'
-	// But NOT: import { foo } from 'module'
-	// And NOT: import * as foo from 'module'
-	const signature = entity.signature
-	return (
-		/^import\s+\w+\s+from/.test(signature) &&
-		!/^import\s*\{/.test(signature) &&
-		!/^import\s*\*/.test(signature)
-	)
-}
-
-/**
- * Check if an import is a namespace import
- *
- * @param entity - The import entity
- * @returns Whether this is a namespace import
- */
-const isNamespaceImport = (entity: ExtractedEntity): boolean => {
-	// Namespace import pattern: import * as foo from 'module'
-	return /^import\s*\*\s*as\s+\w+/.test(entity.signature)
+const getImportSource = (entity: ExtractedEntity): string => {
+	return entity.source ?? ''
 }
 
 /**
@@ -178,9 +132,7 @@ export const getRelevantImports = (
 	// Map import entity to ImportInfo
 	const mapToImportInfo = (entity: ExtractedEntity): ImportInfo => ({
 		name: entity.name,
-		source: parseImportSource(entity),
-		isDefault: isDefaultImport(entity) || undefined,
-		isNamespace: isNamespaceImport(entity) || undefined,
+		source: getImportSource(entity),
 	})
 
 	// If not filtering, return all imports

@@ -6,7 +6,7 @@ import type {
 	SyntaxNode,
 } from '../types'
 import { extractDocstring } from './docstring'
-import { extractName, extractSignature } from './signature'
+import { extractImportSource, extractName, extractSignature } from './signature'
 
 /**
  * Node types that represent extractable entities by language
@@ -176,6 +176,12 @@ function walkAndExtract(
 					// Extract docstring
 					const docstring = yield* extractDocstring(node, language, code)
 
+					// Extract import source for import entities
+					const source =
+						entityType === 'import'
+							? (extractImportSource(node, language) ?? undefined)
+							: undefined
+
 					// Create entity
 					const entity: ExtractedEntity = {
 						type: entityType,
@@ -192,6 +198,7 @@ function walkAndExtract(
 						},
 						parent: parentName,
 						node,
+						source,
 					}
 
 					entities.push(entity)
