@@ -12,7 +12,7 @@ import {
 	getEntityType,
 } from './fallback'
 import { type CompiledQuery, loadQuery, loadQuerySync } from './queries'
-import { extractName, extractSignature } from './signature'
+import { extractImportSource, extractName, extractSignature } from './signature'
 
 /**
  * Error when entity extraction fails
@@ -168,6 +168,12 @@ function matchesToEntities(
 			// Find parent entity
 			const parent = findParentEntityName(itemNode, rootNode, language)
 
+			// Extract import source for import entities
+			const source =
+				entityType === 'import'
+					? (extractImportSource(itemNode, language) ?? undefined)
+					: undefined
+
 			const entity: ExtractedEntity = {
 				type: entityType,
 				name,
@@ -183,6 +189,7 @@ function matchesToEntities(
 				},
 				parent,
 				node: itemNode,
+				source,
 			}
 
 			entities.push(entity)
@@ -359,4 +366,4 @@ export {
 } from './fallback'
 export type { CompiledQuery, QueryLoadError } from './queries'
 export { clearQueryCache, loadQuery, loadQuerySync } from './queries'
-export { extractName, extractSignature } from './signature'
+export { extractImportSource, extractName, extractSignature } from './signature'
