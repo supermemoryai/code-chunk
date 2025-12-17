@@ -1,4 +1,4 @@
-import { Chunk as EffectChunk, Effect, Stream } from 'effect'
+import { Effect, Stream } from 'effect'
 import {
 	chunk as chunkInternal,
 	streamChunks as streamChunksInternal,
@@ -10,7 +10,6 @@ import { buildScopeTree } from './scope'
 import type {
 	Chunk,
 	ChunkOptions,
-	ExtractedEntity,
 	Language,
 	ParseResult,
 	ScopeTree,

@@ -197,10 +197,10 @@ describe('extractEntities', () => {
 			parent: null,
 		})
 		// Class spans entire code
-		expect(cls!.byteRange.start).toBe(0)
-		expect(cls!.byteRange.end).toBe(code.length)
-		expect(cls!.lineRange.start).toBe(0)
-		expect(cls!.lineRange.end).toBe(8)
+		expect(cls?.byteRange.start).toBe(0)
+		expect(cls?.byteRange.end).toBe(code.length)
+		expect(cls?.lineRange.start).toBe(0)
+		expect(cls?.lineRange.end).toBe(8)
 
 		const methods = entities.filter((e) => e.type === 'method')
 		expect(methods).toHaveLength(2)
@@ -1155,13 +1155,13 @@ describe('byte and line range verification', () => {
 		expect(entities).toHaveLength(3)
 
 		const cls = entities.find((e) => e.name === 'Foo')
-		expect(cls!.lineRange).toEqual({ start: 0, end: 3 })
+		expect(cls?.lineRange).toEqual({ start: 0, end: 3 })
 
 		const bar = entities.find((e) => e.name === 'bar')
-		expect(bar!.lineRange).toEqual({ start: 1, end: 1 })
+		expect(bar?.lineRange).toEqual({ start: 1, end: 1 })
 
 		const baz = entities.find((e) => e.name === 'baz')
-		expect(baz!.lineRange).toEqual({ start: 2, end: 2 })
+		expect(baz?.lineRange).toEqual({ start: 2, end: 2 })
 	})
 
 	test('verifies byte ranges for multiple top-level functions', async () => {
@@ -1180,15 +1180,15 @@ function b() {}`
 		const fnB = entities.find((e) => e.name === 'b')
 
 		// fnA should start at 0
-		expect(fnA!.byteRange.start).toBe(0)
+		expect(fnA?.byteRange.start).toBe(0)
 		// fnA should end before fnB starts
-		expect(fnA!.byteRange.end).toBeLessThanOrEqual(fnB!.byteRange.start)
+		expect(fnA?.byteRange.end).toBeLessThanOrEqual(fnB?.byteRange.start)
 		// fnB should end at code.length
-		expect(fnB!.byteRange.end).toBe(code.length)
+		expect(fnB?.byteRange.end).toBe(code.length)
 
 		// Verify line ranges
-		expect(fnA!.lineRange).toEqual({ start: 0, end: 0 })
-		expect(fnB!.lineRange).toEqual({ start: 1, end: 1 })
+		expect(fnA?.lineRange).toEqual({ start: 0, end: 0 })
+		expect(fnB?.lineRange).toEqual({ start: 1, end: 1 })
 	})
 
 	test('verifies line range for multi-line interface', async () => {
@@ -1233,13 +1233,13 @@ describe('parent relationship accuracy', () => {
 		expect(entities).toHaveLength(3)
 
 		const method1 = entities.find((e) => e.name === 'method1')
-		expect(method1!.parent).toBe('Container')
+		expect(method1?.parent).toBe('Container')
 
 		const method2 = entities.find((e) => e.name === 'method2')
-		expect(method2!.parent).toBe('Container')
+		expect(method2?.parent).toBe('Container')
 
 		const container = entities.find((e) => e.name === 'Container')
-		expect(container!.parent).toBeNull()
+		expect(container?.parent).toBeNull()
 	})
 
 	test('top-level functions have null parent', async () => {
@@ -1272,8 +1272,8 @@ function topLevel2() {}`
 
 		// Python methods are extracted as 'function' type with parent set
 		const method = entities.find((e) => e.name === 'my_method')
-		expect(method!.type).toBe('function')
-		expect(method!.parent).toBe('MyClass')
+		expect(method?.type).toBe('function')
+		expect(method?.parent).toBe('MyClass')
 	})
 })
 
@@ -1608,16 +1608,16 @@ import d from 'module-d'`
 		expect(imports).toHaveLength(4)
 
 		const importA = imports.find((i) => i.name === 'a')
-		expect(importA!.source).toBe('module-a')
+		expect(importA?.source).toBe('module-a')
 
 		const importB = imports.find((i) => i.name === 'b')
-		expect(importB!.source).toBe('module-b')
+		expect(importB?.source).toBe('module-b')
 
 		const importC = imports.find((i) => i.name === 'c')
-		expect(importC!.source).toBe('module-b')
+		expect(importC?.source).toBe('module-b')
 
 		const importD = imports.find((i) => i.name === 'd')
-		expect(importD!.source).toBe('module-d')
+		expect(importD?.source).toBe('module-d')
 	})
 })
 

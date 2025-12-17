@@ -110,8 +110,8 @@ describe('parseCode', () => {
 			// Verify function name via tree-sitter field access
 			const nameNode = funcNode.childForFieldName('name')
 			expect(nameNode).not.toBeNull()
-			expect(nameNode!.type).toBe('identifier')
-			expect(nameNode!.text).toBe('greet')
+			expect(nameNode?.type).toBe('identifier')
+			expect(nameNode?.text).toBe('greet')
 
 			// Verify exact positions
 			expect(funcNode.startPosition.row).toBe(0)
@@ -122,7 +122,7 @@ describe('parseCode', () => {
 			// Verify parameters field
 			const paramsNode = funcNode.childForFieldName('parameters')
 			expect(paramsNode).not.toBeNull()
-			expect(paramsNode!.type).toBe('formal_parameters')
+			expect(paramsNode?.type).toBe('formal_parameters')
 
 			// Verify return type field
 			const returnTypeNode = funcNode.childForFieldName('return_type')
@@ -131,7 +131,7 @@ describe('parseCode', () => {
 			// Verify body field
 			const bodyNode = funcNode.childForFieldName('body')
 			expect(bodyNode).not.toBeNull()
-			expect(bodyNode!.type).toBe('statement_block')
+			expect(bodyNode?.type).toBe('statement_block')
 		})
 
 		test('parses arrow function with exact positions', async () => {
@@ -151,7 +151,7 @@ describe('parseCode', () => {
 
 			const arrowFunc = variableDeclarator.childForFieldName('value')
 			expect(arrowFunc).not.toBeNull()
-			expect(arrowFunc!.type).toBe('arrow_function')
+			expect(arrowFunc?.type).toBe('arrow_function')
 
 			// Verify positions
 			expect(root.startPosition).toEqual({ row: 0, column: 0 })
@@ -177,14 +177,14 @@ describe('parseCode', () => {
 
 			const className = classNode.childForFieldName('name')
 			expect(className).not.toBeNull()
-			expect(className!.text).toBe('Calculator')
+			expect(className?.text).toBe('Calculator')
 
 			const body = classNode.childForFieldName('body')
 			expect(body).not.toBeNull()
-			expect(body!.type).toBe('class_body')
+			expect(body?.type).toBe('class_body')
 
 			// Verify class body has exactly 2 members (field + method)
-			const namedChildren = body!.namedChildren
+			const namedChildren = body?.namedChildren
 			expect(namedChildren).toHaveLength(2)
 			expect(namedChildren[0].type).toBe('public_field_definition')
 			expect(namedChildren[1].type).toBe('method_definition')
@@ -206,14 +206,14 @@ describe('parseCode', () => {
 			expect(interfaceNode.type).toBe('interface_declaration')
 
 			const interfaceName = interfaceNode.childForFieldName('name')
-			expect(interfaceName!.text).toBe('User')
+			expect(interfaceName?.text).toBe('User')
 
 			const body = interfaceNode.childForFieldName('body')
 			expect(body).not.toBeNull()
-			expect(body!.type).toBe('interface_body')
+			expect(body?.type).toBe('interface_body')
 
 			// Verify exact property count
-			const properties = body!.namedChildren.filter(
+			const properties = body?.namedChildren.filter(
 				(n) => n.type === 'property_signature',
 			)
 			expect(properties).toHaveLength(3)
@@ -231,11 +231,11 @@ describe('parseCode', () => {
 			expect(typeAlias.type).toBe('type_alias_declaration')
 
 			const typeName = typeAlias.childForFieldName('name')
-			expect(typeName!.text).toBe('Status')
+			expect(typeName?.text).toBe('Status')
 
 			const typeValue = typeAlias.childForFieldName('value')
 			expect(typeValue).not.toBeNull()
-			expect(typeValue!.type).toBe('union_type')
+			expect(typeValue?.type).toBe('union_type')
 		})
 	})
 
@@ -273,7 +273,7 @@ export { add }`
 
 			const declarator = lexicalDecl.firstNamedChild!
 			const pattern = declarator.childForFieldName('name')
-			expect(pattern!.type).toBe('object_pattern')
+			expect(pattern?.type).toBe('object_pattern')
 		})
 	})
 
@@ -292,7 +292,7 @@ export { add }`
 			expect(funcNode.type).toBe('function_definition')
 
 			const funcName = funcNode.childForFieldName('name')
-			expect(funcName!.text).toBe('greet')
+			expect(funcName?.text).toBe('greet')
 
 			// Verify exact position
 			expect(funcNode.startPosition).toEqual({ row: 0, column: 0 })
@@ -319,14 +319,14 @@ export { add }`
 			expect(classNode.type).toBe('class_definition')
 
 			const className = classNode.childForFieldName('name')
-			expect(className!.text).toBe('Calculator')
+			expect(className?.text).toBe('Calculator')
 
 			const body = classNode.childForFieldName('body')
 			expect(body).not.toBeNull()
-			expect(body!.type).toBe('block')
+			expect(body?.type).toBe('block')
 
 			// Verify method count
-			const methods = body!.namedChildren.filter(
+			const methods = body?.namedChildren.filter(
 				(n) => n.type === 'function_definition',
 			)
 			expect(methods).toHaveLength(2)
@@ -373,7 +373,7 @@ def value(self):
 			expect(funcNode.type).toBe('function_item')
 
 			const funcName = funcNode.childForFieldName('name')
-			expect(funcName!.text).toBe('main')
+			expect(funcName?.text).toBe('main')
 
 			// Verify positions
 			expect(funcNode.startPosition).toEqual({ row: 0, column: 0 })
@@ -395,14 +395,14 @@ def value(self):
 			expect(structNode.type).toBe('struct_item')
 
 			const structName = structNode.childForFieldName('name')
-			expect(structName!.text).toBe('Point')
+			expect(structName?.text).toBe('Point')
 
 			const body = structNode.childForFieldName('body')
 			expect(body).not.toBeNull()
-			expect(body!.type).toBe('field_declaration_list')
+			expect(body?.type).toBe('field_declaration_list')
 
 			// Verify field count
-			const fields = body!.namedChildren.filter(
+			const fields = body?.namedChildren.filter(
 				(n) => n.type === 'field_declaration',
 			)
 			expect(fields).toHaveLength(2)
@@ -424,12 +424,12 @@ def value(self):
 			expect(implNode.type).toBe('impl_item')
 
 			const implType = implNode.childForFieldName('type')
-			expect(implType!.text).toBe('Point')
+			expect(implType?.text).toBe('Point')
 
 			const body = implNode.childForFieldName('body')
 			expect(body).not.toBeNull()
 
-			const methods = body!.namedChildren.filter(
+			const methods = body?.namedChildren.filter(
 				(n) => n.type === 'function_item',
 			)
 			expect(methods).toHaveLength(1)
@@ -455,7 +455,7 @@ func main() {
 
 			const funcNode = root.children[1]
 			const funcName = funcNode.childForFieldName('name')
-			expect(funcName!.text).toBe('main')
+			expect(funcName?.text).toBe('main')
 
 			// Verify positions
 			expect(funcNode.startPosition).toEqual({ row: 2, column: 0 })
@@ -512,13 +512,13 @@ func (p Point) String() string {
 			expect(classNode.type).toBe('class_declaration')
 
 			const className = classNode.childForFieldName('name')
-			expect(className!.text).toBe('Main')
+			expect(className?.text).toBe('Main')
 
 			const body = classNode.childForFieldName('body')
 			expect(body).not.toBeNull()
-			expect(body!.type).toBe('class_body')
+			expect(body?.type).toBe('class_body')
 
-			const methods = body!.namedChildren.filter(
+			const methods = body?.namedChildren.filter(
 				(n) => n.type === 'method_declaration',
 			)
 			expect(methods).toHaveLength(1)
@@ -526,7 +526,7 @@ func (p Point) String() string {
 			// Verify method name
 			const mainMethod = methods[0]
 			const methodName = mainMethod.childForFieldName('name')
-			expect(methodName!.text).toBe('main')
+			expect(methodName?.text).toBe('main')
 		})
 
 		test('parses interface correctly', async () => {
@@ -543,7 +543,7 @@ func (p Point) String() string {
 			expect(interfaceNode.type).toBe('interface_declaration')
 
 			const interfaceName = interfaceNode.childForFieldName('name')
-			expect(interfaceName!.text).toBe('Comparable')
+			expect(interfaceName?.text).toBe('Comparable')
 		})
 	})
 
@@ -560,9 +560,9 @@ func (p Point) String() string {
 
 			// Verify error details
 			expect(result.error).not.toBeNull()
-			expect(result.error!.recoverable).toBe(true)
+			expect(result.error?.recoverable).toBe(true)
 			// Error message contains either ERROR or MISSING depending on grammar
-			expect(result.error!.message).toMatch(/ERROR|MISSING/)
+			expect(result.error?.message).toMatch(/ERROR|MISSING/)
 
 			// Verify tree has errors
 			expect(result.tree.rootNode.hasError).toBe(true)
@@ -574,9 +574,9 @@ func (p Point) String() string {
 
 			expect(result.tree).not.toBeNull()
 			expect(result.error).not.toBeNull()
-			expect(result.error!.recoverable).toBe(true)
+			expect(result.error?.recoverable).toBe(true)
 			// Error message should include position info
-			expect(result.error!.message).toMatch(/line \d+, column \d+/)
+			expect(result.error?.message).toMatch(/line \d+, column \d+/)
 		})
 
 		test('Python: missing body produces partial tree', async () => {
@@ -611,7 +611,7 @@ const b = 2`
 			// Rust requires semicolons - this should have an error
 			expect(result.tree).not.toBeNull()
 			expect(result.error).not.toBeNull()
-			expect(result.error!.recoverable).toBe(true)
+			expect(result.error?.recoverable).toBe(true)
 		})
 
 		test('Go: missing package declaration produces error', async () => {
@@ -634,12 +634,12 @@ function c( { return }`
 			const result = await parseCode(code, 'typescript')
 
 			expect(result.error).not.toBeNull()
-			expect(result.error!.recoverable).toBe(true)
+			expect(result.error?.recoverable).toBe(true)
 			// Should have multiple error locations (ERROR or MISSING)
-			expect(result.error!.message).toMatch(/ERROR|MISSING/)
+			expect(result.error?.message).toMatch(/ERROR|MISSING/)
 			// Multiple errors means multiple occurrences of line info
-			const lineMatches = result.error!.message.match(/line \d+/g)
-			expect(lineMatches!.length).toBeGreaterThanOrEqual(2)
+			const lineMatches = result.error?.message.match(/line \d+/g)
+			expect(lineMatches?.length).toBeGreaterThanOrEqual(2)
 		})
 
 		test('error count is capped at 3 plus summary', async () => {
@@ -652,7 +652,7 @@ function e( { }`
 
 			expect(result.error).not.toBeNull()
 			// Error message should show first 3 errors and "... and X more"
-			expect(result.error!.message).toContain('more')
+			expect(result.error?.message).toContain('more')
 		})
 	})
 
@@ -812,12 +812,12 @@ function c() {}`
 			const result = await parseCode(code, 'typescript')
 
 			const root = result.tree.rootNode
-			expect(root.firstChild!.type).toBe('function_declaration')
-			expect(root.lastChild!.type).toBe('function_declaration')
+			expect(root.firstChild?.type).toBe('function_declaration')
+			expect(root.lastChild?.type).toBe('function_declaration')
 
 			// Verify first vs last by checking function names
-			const firstName = root.firstChild!.childForFieldName('name')!.text
-			const lastName = root.lastChild!.childForFieldName('name')!.text
+			const firstName = root.firstChild?.childForFieldName('name')?.text
+			const lastName = root.lastChild?.childForFieldName('name')?.text
 
 			expect(firstName).toBe('a')
 			expect(lastName).toBe('c')
@@ -834,13 +834,13 @@ function c() {}`
 			const second = first.nextSibling!
 			const third = second.nextSibling!
 
-			expect(second.childForFieldName('name')!.text).toBe('b')
-			expect(third.childForFieldName('name')!.text).toBe('c')
+			expect(second.childForFieldName('name')?.text).toBe('b')
+			expect(third.childForFieldName('name')?.text).toBe('c')
 			expect(third.nextSibling).toBeNull()
 
 			// Use .equals() for node comparison instead of toBe (object identity)
-			expect(third.previousSibling!.equals(second)).toBe(true)
-			expect(second.previousSibling!.equals(first)).toBe(true)
+			expect(third.previousSibling?.equals(second)).toBe(true)
+			expect(second.previousSibling?.equals(first)).toBe(true)
 			expect(first.previousSibling).toBeNull()
 		})
 
@@ -855,8 +855,8 @@ function c() {}`
 			const node = root.descendantForIndex(nameStart)
 
 			expect(node).not.toBeNull()
-			expect(node!.text).toBe('name')
-			expect(node!.type).toBe('identifier')
+			expect(node?.text).toBe('name')
+			expect(node?.type).toBe('identifier')
 		})
 	})
 })

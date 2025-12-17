@@ -74,12 +74,12 @@ describe('chunk', () => {
 			index: 0,
 			totalChunks: 1,
 		})
-		expect(chunks[0]!.context).toMatchObject({
+		expect(chunks[0]?.context).toMatchObject({
 			filepath: 'test.ts',
 			language: 'typescript',
 		})
-		expect(chunks[0]!.context.entities).toHaveLength(1)
-		expect(chunks[0]!.context.entities[0]).toMatchObject({
+		expect(chunks[0]?.context.entities).toHaveLength(1)
+		expect(chunks[0]?.context.entities[0]).toMatchObject({
 			name: 'greet',
 			type: 'function',
 			isPartial: false,
@@ -159,7 +159,7 @@ function c() { return 3 }`
 		// Even with wrong extension, should work with language override
 		const chunks = await chunk('test.txt', code, { language: 'typescript' })
 		expect(chunks).toHaveLength(1)
-		expect(chunks[0]!.context.language).toBe('typescript')
+		expect(chunks[0]?.context.language).toBe('typescript')
 	})
 })
 
@@ -200,8 +200,8 @@ function d() { return 4 }`
 		const chunks = await chunk('test.ts', code)
 
 		expect(chunks).toHaveLength(1)
-		expect(chunks[0]!.byteRange).toEqual({ start: 0, end: 11 })
-		expect(chunks[0]!.lineRange).toEqual({ start: 0, end: 0 })
+		expect(chunks[0]?.byteRange).toEqual({ start: 0, end: 11 })
+		expect(chunks[0]?.lineRange).toEqual({ start: 0, end: 0 })
 	})
 
 	test('exact line range verification with multiline code', async () => {
@@ -215,8 +215,8 @@ function foo() { // Line 1
 
 		// All lines should be covered
 		expect(chunks).toHaveLength(1)
-		expect(chunks[0]!.lineRange.start).toBe(0)
-		expect(chunks[0]!.lineRange.end).toBe(4)
+		expect(chunks[0]?.lineRange.start).toBe(0)
+		expect(chunks[0]?.lineRange.end).toBe(4)
 	})
 
 	test('multiple chunks maintain byte continuity', async () => {
@@ -249,7 +249,7 @@ function longFunction3() {
 		const sortedChunks = [...chunks].sort(
 			(a, b) => a.byteRange.start - b.byteRange.start,
 		)
-		expect(sortedChunks[0]!.byteRange.start).toBe(0)
+		expect(sortedChunks[0]?.byteRange.start).toBe(0)
 
 		// Verify all byte ranges are valid
 		for (const c of sortedChunks) {
@@ -288,7 +288,7 @@ describe('context.entities verification', () => {
 		// Find the class entity
 		const classEntity = allEntities.find((e) => e.name === 'Calculator')
 		expect(classEntity).toBeDefined()
-		expect(classEntity!.type).toBe('class')
+		expect(classEntity?.type).toBe('class')
 	})
 
 	test('entity isPartial flag correctness', async () => {
@@ -343,8 +343,8 @@ function add(a: number, b: number): number {
 			.find((e) => e.name === 'add')
 
 		expect(addEntity).toBeDefined()
-		expect(addEntity!.docstring).toBeDefined()
-		expect(addEntity!.docstring).toContain('Adds two numbers together')
+		expect(addEntity?.docstring).toBeDefined()
+		expect(addEntity?.docstring).toContain('Adds two numbers together')
 	})
 
 	test('entity lineRange is present', async () => {
@@ -353,11 +353,11 @@ function add(a: number, b: number): number {
 }`
 
 		const chunks = await chunk('test.ts', code)
-		const entity = chunks[0]!.context.entities[0]!
+		const entity = chunks[0]?.context.entities[0]!
 
 		expect(entity.lineRange).toBeDefined()
-		expect(entity.lineRange!.start).toBe(0)
-		expect(entity.lineRange!.end).toBe(2)
+		expect(entity.lineRange?.start).toBe(0)
+		expect(entity.lineRange?.end).toBe(2)
 	})
 })
 
@@ -388,7 +388,7 @@ describe('context.scope chain verification', () => {
 				(s) => s.name === 'Outer',
 			)
 			expect(outerScope).toBeDefined()
-			expect(outerScope!.type).toBe('class')
+			expect(outerScope?.type).toBe('class')
 		}
 	})
 
@@ -449,7 +449,7 @@ function fourth() { return 4 }`
 
 			// Should have siblings before and after
 			const beforeSiblings = siblings.filter((s) => s.position === 'before')
-			const afterSiblings = siblings.filter((s) => s.position === 'after')
+			const _afterSiblings = siblings.filter((s) => s.position === 'after')
 
 			// first should be before second
 			const firstSibling = beforeSiblings.find((s) => s.name === 'first')
@@ -558,10 +558,10 @@ const x = foo() + bar()`
 		const barImport = allImports.find((i) => i.name === 'bar')
 
 		expect(fooImport).toBeDefined()
-		expect(fooImport!.source).toBe('./utils/foo')
+		expect(fooImport?.source).toBe('./utils/foo')
 
 		expect(barImport).toBeDefined()
-		expect(barImport!.source).toBe('@scope/bar')
+		expect(barImport?.source).toBe('@scope/bar')
 	})
 })
 
@@ -586,7 +586,7 @@ function b() { return 2 }`
 				language: 'typescript',
 			},
 		})
-		expect(chunks[0]!.text.length).toBeGreaterThan(0)
+		expect(chunks[0]?.text.length).toBeGreaterThan(0)
 	})
 
 	test('stream respects options', async () => {
@@ -652,8 +652,8 @@ describe('createChunker', () => {
 
 		expect(chunks1).toHaveLength(1)
 		expect(chunks2).toHaveLength(1)
-		expect(chunks1[0]!.text).toBe(code1)
-		expect(chunks2[0]!.text).toBe(code2)
+		expect(chunks1[0]?.text).toBe(code1)
+		expect(chunks2[0]?.text).toBe(code2)
 	})
 
 	test('chunker can chunk multiple files with different extensions', async () => {
@@ -667,8 +667,8 @@ describe('createChunker', () => {
 
 		expect(tsChunks).toHaveLength(1)
 		expect(jsChunks).toHaveLength(1)
-		expect(tsChunks[0]!.context.language).toBe('typescript')
-		expect(jsChunks[0]!.context.language).toBe('javascript')
+		expect(tsChunks[0]?.context.language).toBe('typescript')
+		expect(jsChunks[0]?.context.language).toBe('javascript')
 	})
 
 	test('chunker.stream yields chunks with correct properties', async () => {
@@ -879,8 +879,8 @@ const emoji = "🎉🚀✨"`
 
 		expect(chunks).toHaveLength(1)
 		// Should preserve unicode
-		expect(chunks[0]!.text).toContain('こんにちは')
-		expect(chunks[0]!.text).toContain('🎉')
+		expect(chunks[0]?.text).toContain('こんにちは')
+		expect(chunks[0]?.text).toContain('🎉')
 	})
 
 	test('handles code with various comment styles', async () => {
@@ -903,7 +903,7 @@ function documented() {
 			.find((e) => e.name === 'documented')
 
 		expect(funcEntity).toBeDefined()
-		expect(funcEntity!.docstring).toContain('JSDoc comment')
+		expect(funcEntity?.docstring).toContain('JSDoc comment')
 	})
 
 	test('handles empty functions', async () => {
@@ -930,7 +930,7 @@ function foo() {
 		const chunks = await chunk('test.ts', code)
 
 		expect(chunks).toHaveLength(1)
-		expect(chunks[0]!.text).toBe(code)
+		expect(chunks[0]?.text).toBe(code)
 	})
 })
 
