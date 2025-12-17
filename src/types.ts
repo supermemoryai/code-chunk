@@ -100,6 +100,8 @@ export interface ExtractedEntity {
 	parent: string | null
 	/** The underlying AST node */
 	node: SyntaxNode
+	/** Import source path (only for import entities) */
+	source?: string
 }
 
 /**

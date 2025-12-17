@@ -356,3 +356,187 @@ export const extractSignature = (
 export const getBodyDelimiter = (language: Language): string => {
 	return BODY_DELIMITERS[language]
 }
+
+/**
+ * Node types that represent import source/path by language
+ */
+const IMPORT_SOURCE_NODE_TYPES: readonly string[] = [
+	'string',
+	'string_literal',
+	'interpreted_string_literal', // Go
+	'source', // Some grammars use this field name
+]
+
+/**
+ * Extract the import source path from an import AST node
+ *
+ * Works for all supported languages by looking at the AST structure:
+ * - JS/TS: import { foo } from 'source' -> string child
+ * - Python: from source import foo -> 'module_name' field or dotted_name
+ * - Rust: use crate::module::item -> scoped_identifier or path
+ * - Go: import "source" -> interpreted_string_literal
+ * - Java: import package.Class -> scoped_identifier
+ *
+ * @param node - The import AST node
+ * @param language - The programming language
+ * @returns The import source path, or null if not found
+ */
+export const extractImportSource = (
+	node: SyntaxNode,
+	language: Language,
+): string | null => {
+	// Try the 'source' field first (common in many grammars)
+	const sourceField = node.childForFieldName('source')
+	if (sourceField) {
+		return stripQuotes(sourceField.text)
+	}
+
+	// Language-specific extraction
+	switch (language) {
+		case 'typescript':
+		case 'javascript': {
+			// Look for string literal child (the 'from "..."' part)
+			for (const child of node.children) {
+				if (child.type === 'string') {
+					return stripQuotes(child.text)
+				}
+			}
+			break
+		}
+
+		case 'python': {
+			// For 'from X import Y', look for module_name field or dotted_name
+			const moduleNameField = node.childForFieldName('module_name')
+			if (moduleNameField) {
+				return moduleNameField.text
+			}
+			// For 'import X' style
+			const nameField = node.childForFieldName('name')
+			if (nameField) {
+				return nameField.text
+			}
+			// Fallback: look for dotted_name
+			for (const child of node.children) {
+				if (child.type === 'dotted_name') {
+					return child.text
+				}
+			}
+			break
+		}
+
+		case 'rust': {
+			// For 'use path::to::item', extract the path
+			// Look for scoped_identifier, use_wildcard, use_list, or identifier
+			const argumentField = node.childForFieldName('argument')
+			if (argumentField) {
+				// Get the path part (everything except the last segment if it's a use_list)
+				return extractRustUsePath(argumentField)
+			}
+			// Fallback: look for children that could be paths
+			for (const child of node.children) {
+				if (
+					child.type === 'scoped_identifier' ||
+					child.type === 'identifier' ||
+					child.type === 'use_wildcard'
+				) {
+					return extractRustUsePath(child)
+				}
+			}
+			break
+		}
+
+		case 'go': {
+			// For 'import "path"', look for import_spec or interpreted_string_literal
+			for (const child of node.children) {
+				// Single import: import "fmt" -> has import_spec child
+				if (child.type === 'import_spec') {
+					const pathNode = child.childForFieldName('path')
+					if (pathNode) {
+						return stripQuotes(pathNode.text)
+					}
+					// Fallback: look for string literal in import_spec
+					for (const specChild of child.children) {
+						if (specChild.type === 'interpreted_string_literal') {
+							return stripQuotes(specChild.text)
+						}
+					}
+				}
+				// Direct string literal (some Go grammars)
+				if (child.type === 'interpreted_string_literal') {
+					return stripQuotes(child.text)
+				}
+				// For import blocks: import ( "fmt" "os" )
+				if (child.type === 'import_spec_list') {
+					for (const spec of child.children) {
+						if (spec.type === 'import_spec') {
+							const pathNode = spec.childForFieldName('path')
+							if (pathNode) {
+								return stripQuotes(pathNode.text)
+							}
+						}
+					}
+				}
+			}
+			break
+		}
+
+		case 'java': {
+			// For 'import package.Class', look for scoped_identifier
+			for (const child of node.children) {
+				if (child.type === 'scoped_identifier') {
+					return child.text
+				}
+			}
+			break
+		}
+	}
+
+	// Fallback: look for any string-like child
+	for (const child of node.children) {
+		if (IMPORT_SOURCE_NODE_TYPES.includes(child.type)) {
+			return stripQuotes(child.text)
+		}
+	}
+
+	return null
+}
+
+/**
+ * Extract the path from a Rust use declaration
+ * For 'std::collections::HashMap', returns 'std::collections::HashMap'
+ * For 'std::collections::{HashMap, HashSet}', returns 'std::collections'
+ */
+const extractRustUsePath = (node: SyntaxNode): string => {
+	// If it's a use_list (e.g., {HashMap, HashSet}), get the parent path
+	if (node.type === 'use_list') {
+		return ''
+	}
+
+	// For scoped_identifier, check if the last part is a use_list
+	if (node.type === 'scoped_identifier') {
+		const lastChild = node.children[node.children.length - 1]
+		if (lastChild?.type === 'use_list') {
+			// Return everything except the use_list
+			const pathChild = node.childForFieldName('path')
+			if (pathChild) {
+				return pathChild.text
+			}
+		}
+	}
+
+	return node.text
+}
+
+/**
+ * Strip surrounding quotes from a string
+ */
+const stripQuotes = (str: string): string => {
+	if (
+		(str.startsWith('"') && str.endsWith('"')) ||
+		(str.startsWith("'") && str.endsWith("'")) ||
+		(str.startsWith('`') && str.endsWith('`'))
+	) {
+		return str.slice(1, -1)
+	}
+	return str
+}
