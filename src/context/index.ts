@@ -5,10 +5,12 @@ import type {
 	ByteRange,
 	Chunk,
 	ChunkContext,
+	ChunkEntityInfo,
 	ChunkOptions,
 	EntityInfo,
 	ExtractedEntity,
 	ImportInfo,
+	Language,
 	ScopeTree,
 } from '../types'
 import { getSiblings, type SiblingOptions } from './siblings'
@@ -69,6 +71,26 @@ export const getScopeForRange = (
 }
 
 /**
+ * Check if an entity is partial (not fully contained) within a byte range
+ *
+ * An entity is partial if it overlaps with the range but is not fully contained.
+ *
+ * @param entity - The entity to check
+ * @param byteRange - The chunk's byte range
+ * @returns Whether the entity is partial
+ */
+const isEntityPartial = (
+	entity: ExtractedEntity,
+	byteRange: ByteRange,
+): boolean => {
+	// Entity is partial if it starts before the range or ends after the range
+	return (
+		entity.byteRange.start < byteRange.start ||
+		entity.byteRange.end > byteRange.end
+	)
+}
+
+/**
  * Get entities within a byte range
  *
  * Finds entities whose byte ranges overlap with the given range.
@@ -76,7 +98,7 @@ export const getScopeForRange = (
  *
  * @param byteRange - The byte range to search
  * @param scopeTree - The scope tree
- * @returns Entity info array for entities in range
+ * @returns Entity info array for entities in range with isPartial detection
  */
 export const getEntitiesInRange = (
 	byteRange: ByteRange,
@@ -90,12 +112,17 @@ export const getEntitiesInRange = (
 		)
 	})
 
-	// Map to EntityInfo
-	return overlappingEntities.map((entity) => ({
-		name: entity.name,
-		type: entity.type,
-		signature: entity.signature,
-	}))
+	// Map to ChunkEntityInfo with additional fields
+	return overlappingEntities.map(
+		(entity): ChunkEntityInfo => ({
+			name: entity.name,
+			type: entity.type,
+			signature: entity.signature,
+			docstring: entity.docstring,
+			lineRange: entity.lineRange,
+			isPartial: isEntityPartial(entity, byteRange),
+		}),
+	)
 }
 
 /**
@@ -170,22 +197,37 @@ export const getRelevantImports = (
 }
 
 /**
+ * Options for attaching context to a chunk
+ */
+export interface AttachContextOptions {
+	/** The rebuilt text info for the chunk */
+	text: RebuiltText
+	/** The scope tree for the file */
+	scopeTree: ScopeTree
+	/** Chunking options */
+	options: ChunkOptions
+	/** The chunk index */
+	index: number
+	/** Total number of chunks */
+	totalChunks: number
+	/** File path of the source file (optional) */
+	filepath?: string
+	/** Programming language of the source (optional) */
+	language?: Language
+}
+
+/**
  * Attach context information to a chunk
  *
- * @param text - The rebuilt text info for the chunk
- * @param scopeTree - The scope tree for the file
- * @param options - Chunking options
- * @param index - The chunk index
- * @param totalChunks - Total number of chunks
+ * @param opts - Options containing all parameters for context attachment
  * @returns Effect yielding the complete chunk with context
  */
 export const attachContext = (
-	text: RebuiltText,
-	scopeTree: ScopeTree,
-	options: ChunkOptions,
-	index: number,
-	totalChunks: number,
+	opts: AttachContextOptions,
 ): Effect.Effect<Chunk, ContextError> => {
+	const { text, scopeTree, options, index, totalChunks, filepath, language } =
+		opts
+
 	return Effect.try({
 		try: () => {
 			// Determine context mode
@@ -194,6 +236,8 @@ export const attachContext = (
 			// For 'none' mode, return minimal context
 			if (contextMode === 'none') {
 				const context: ChunkContext = {
+					filepath,
+					language,
 					scope: [],
 					entities: [],
 					siblings: [],
@@ -228,6 +272,8 @@ export const attachContext = (
 			const imports = getRelevantImports(entities, scopeTree, filterImports)
 
 			const context: ChunkContext = {
+				filepath,
+				language,
 				scope,
 				entities,
 				siblings,

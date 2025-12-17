@@ -159,6 +159,19 @@ export interface EntityInfo {
 }
 
 /**
+ * Extended entity info for entities within a chunk
+ * Includes additional context like docstring, line range, and partial status
+ */
+export interface ChunkEntityInfo extends EntityInfo {
+	/** Documentation comment if present */
+	docstring?: string | null
+	/** Line range in source (0-indexed, inclusive) */
+	lineRange?: LineRange
+	/** Whether this entity spans multiple chunks (is partial) */
+	isPartial?: boolean
+}
+
+/**
  * Information about a sibling entity
  */
 export interface SiblingInfo {
@@ -190,10 +203,14 @@ export interface ImportInfo {
  * Context information for a chunk
  */
 export interface ChunkContext {
-	/** Scope information */
+	/** File path of the source file */
+	filepath?: string
+	/** Programming language of the source */
+	language?: Language
+	/** Scope information (scope chain from current to root) */
 	scope: EntityInfo[]
 	/** Entities within this chunk */
-	entities: EntityInfo[]
+	entities: ChunkEntityInfo[]
 	/** Nearby sibling entities */
 	siblings: SiblingInfo[]
 	/** Relevant imports */
