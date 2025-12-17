@@ -1,5 +1,8 @@
 import { Effect } from 'effect'
-import { chunk as chunkInternal } from './chunking'
+import {
+	chunk as chunkInternal,
+	streamChunks as streamChunksInternal,
+} from './chunking'
 import { extractEntities } from './extract'
 import { parseCode } from './parser'
 import { detectLanguage } from './parser/languages'
@@ -74,7 +77,7 @@ const chunkEffect = (
 				new ChunkingError('Failed to build scope tree', error),
 		)
 
-		// Step 5: Chunk the code
+		// Step 5: Chunk the code (passing filepath for context)
 		const chunks = yield* Effect.mapError(
 			chunkInternal(
 				parseResult.tree.rootNode,
@@ -82,6 +85,7 @@ const chunkEffect = (
 				scopeTree,
 				language,
 				options,
+				filepath,
 			),
 			(error: unknown) => new ChunkingError('Failed to chunk code', error),
 		)
@@ -132,4 +136,100 @@ export async function chunk(
 	options?: ChunkOptions,
 ): Promise<Chunk[]> {
 	return Effect.runPromise(chunkEffect(filepath, code, options))
+}
+
+/**
+ * Stream source code chunks as they are generated
+ *
+ * This function returns an async generator that yields chunks one at a time,
+ * which is useful for processing large files without waiting for all chunks
+ * to be generated.
+ *
+ * @param filepath - The file path (used for language detection)
+ * @param code - The source code to chunk
+ * @param options - Optional chunking configuration
+ * @returns Async generator of chunks with context
+ * @throws ChunkingError if chunking fails
+ * @throws UnsupportedLanguageError if the file type is not supported
+ *
+ * @example
+ * ```ts
+ * import { stream } from 'astchunk'
+ *
+ * for await (const chunk of stream('src/utils.ts', sourceCode)) {
+ *   console.log(chunk.text, chunk.context)
+ * }
+ * ```
+ */
+export async function* chunkStream(
+	filepath: string,
+	code: string,
+	options?: ChunkOptions,
+): AsyncGenerator<Chunk> {
+	// Detect language (or use override)
+	const language: Language | null =
+		options?.language ?? detectLanguage(filepath)
+
+	if (!language) {
+		throw new UnsupportedLanguageError(filepath)
+	}
+
+	// Parse the code
+	let parseResult: Awaited<ReturnType<typeof parseCode>>
+	try {
+		parseResult = await parseCode(code, language)
+	} catch (error) {
+		throw new ChunkingError('Failed to parse code', error)
+	}
+
+	// Extract entities from AST
+	let entities: Awaited<
+		ReturnType<typeof extractEntities> extends Effect.Effect<infer A, unknown>
+			? A
+			: never
+	>
+	try {
+		entities = await Effect.runPromise(
+			extractEntities(parseResult.tree.rootNode, language, code),
+		)
+	} catch (error) {
+		throw new ChunkingError('Failed to extract entities', error)
+	}
+
+	// Build scope tree
+	let scopeTree: Awaited<
+		ReturnType<typeof buildScopeTree> extends Effect.Effect<infer A, unknown>
+			? A
+			: never
+	>
+	try {
+		scopeTree = await Effect.runPromise(buildScopeTree(entities))
+	} catch (error) {
+		throw new ChunkingError('Failed to build scope tree', error)
+	}
+
+	// Stream chunks from the internal generator, passing filepath for context
+	const chunkGenerator = streamChunksInternal(
+		parseResult.tree.rootNode,
+		code,
+		scopeTree,
+		language,
+		options,
+		filepath,
+	)
+
+	// Yield chunks, optionally attaching parse error if present
+	for await (const chunk of chunkGenerator) {
+		if (parseResult.error) {
+			yield {
+				...chunk,
+				context: {
+					...chunk.context,
+					parseError: parseResult.error,
+				},
+			}
+		} else {
+			yield chunk
+		}
+	}
 }

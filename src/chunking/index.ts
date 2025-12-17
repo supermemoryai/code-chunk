@@ -1,19 +1,21 @@
 import { Effect } from 'effect'
+import {
+	getEntitiesInRange,
+	getRelevantImports,
+	getScopeForRange,
+} from '../context'
 import { getSiblings } from '../context/siblings'
-import { findScopeAtOffset, getAncestorChain } from '../scope/tree'
 import type {
 	ASTWindow,
 	Chunk,
 	ChunkContext,
 	ChunkOptions,
-	EntityInfo,
-	ImportInfo,
 	Language,
 	ScopeTree,
 	SyntaxNode,
 } from '../types'
 import { mergeAdjacentWindows } from './merge'
-import { getNwsCount, type NwsCountMap, preprocessNwsCount } from './nws'
+import { getNwsCountForNode, type NwsCumsum, preprocessNwsCumsum } from './nws'
 import { isLeafNode } from './oversized'
 import { type RebuiltText, rebuildText } from './rebuild'
 import { getAncestors } from './windows'
@@ -21,97 +23,26 @@ import { getAncestors } from './windows'
 /**
  * Error when chunking fails
  */
-export class ChunkError {
+export class ChunkError extends Error {
 	readonly _tag = 'ChunkError'
-	constructor(
-		readonly message: string,
-		readonly cause?: unknown,
-	) {}
+	override readonly cause?: unknown
+
+	constructor(message: string, cause?: unknown) {
+		super(message)
+		this.name = 'ChunkError'
+		this.cause = cause
+	}
 }
 
 /**
  * Default chunk options
  */
 export const DEFAULT_CHUNK_OPTIONS: Required<ChunkOptions> = {
-	maxChunkSize: 4096,
+	maxChunkSize: 1500,
 	contextMode: 'full',
 	siblingDetail: 'signatures',
 	filterImports: false,
 	language: 'typescript',
-}
-
-/**
- * Get entities within a byte range
- */
-const getEntitiesInRange = (
-	byteRange: { start: number; end: number },
-	scopeTree: ScopeTree,
-): EntityInfo[] => {
-	return scopeTree.allEntities
-		.filter(
-			(entity) =>
-				entity.byteRange.start >= byteRange.start &&
-				entity.byteRange.end <= byteRange.end,
-		)
-		.map((entity) => ({
-			name: entity.name,
-			type: entity.type,
-			signature: entity.signature,
-		}))
-}
-
-/**
- * Get scope information for a byte range
- */
-const getScopeForRange = (
-	byteRange: { start: number; end: number },
-	scopeTree: ScopeTree,
-): EntityInfo[] => {
-	const scopeNode = findScopeAtOffset(scopeTree, byteRange.start)
-	if (!scopeNode) {
-		return []
-	}
-
-	const ancestors = getAncestorChain(scopeNode)
-	return [scopeNode, ...ancestors].map((node) => ({
-		name: node.entity.name,
-		type: node.entity.type,
-		signature: node.entity.signature,
-	}))
-}
-
-/**
- * Get relevant imports for a chunk
- */
-const getRelevantImports = (
-	_byteRange: { start: number; end: number },
-	scopeTree: ScopeTree,
-	chunkText: string,
-	filterImports: boolean,
-): ImportInfo[] => {
-	if (!filterImports) {
-		// Return all imports
-		return scopeTree.imports.map((imp) => ({
-			name: imp.name,
-			source: imp.signature.match(/from ['"]([^'"]+)['"]/)?.[1] ?? '',
-			isDefault: imp.signature.includes('default'),
-			isNamespace: imp.signature.includes('* as'),
-		}))
-	}
-
-	// Filter imports that are used in this chunk
-	return scopeTree.imports
-		.filter((imp) => {
-			// Check if import name is used in chunk text
-			const nameRegex = new RegExp(`\\b${imp.name}\\b`)
-			return nameRegex.test(chunkText)
-		})
-		.map((imp) => ({
-			name: imp.name,
-			source: imp.signature.match(/from ['"]([^'"]+)['"]/)?.[1] ?? '',
-			isDefault: imp.signature.includes('default'),
-			isNamespace: imp.signature.includes('* as'),
-		}))
 }
 
 /**
@@ -121,7 +52,7 @@ const getRelevantImports = (
 function* greedyAssignWindows(
 	nodes: SyntaxNode[],
 	code: string,
-	nwsMap: NwsCountMap,
+	cumsum: NwsCumsum,
 	maxSize: number,
 ): Generator<ASTWindow> {
 	let currentWindow: ASTWindow = {
@@ -132,7 +63,7 @@ function* greedyAssignWindows(
 	}
 
 	for (const node of nodes) {
-		const nodeSize = getNwsCount(node, nwsMap, code)
+		const nodeSize = getNwsCountForNode(node, cumsum)
 
 		// Check if node fits in current window
 		if (currentWindow.size + nodeSize <= maxSize) {
@@ -162,7 +93,7 @@ function* greedyAssignWindows(
 						children.push(child)
 					}
 				}
-				yield* greedyAssignWindows(children, code, nwsMap, maxSize)
+				yield* greedyAssignWindows(children, code, cumsum, maxSize)
 			} else {
 				// Leaf node that's oversized - split at line boundaries
 				const windows = splitOversizedLeafByLines(node, code, maxSize)
@@ -266,11 +197,20 @@ function* splitOversizedLeafByLines(
 
 /**
  * Build chunk context from scope tree
+ *
+ * @param text - The rebuilt text for the chunk
+ * @param scopeTree - The scope tree
+ * @param options - Chunking options
+ * @param filepath - Optional file path of the source file
+ * @param language - Optional programming language
+ * @returns The chunk context including filepath and language if provided
  */
 const buildContext = (
 	text: RebuiltText,
 	scopeTree: ScopeTree,
 	options: Required<ChunkOptions>,
+	filepath?: string,
+	language?: Language,
 ): ChunkContext => {
 	const byteRange = text.byteRange
 
@@ -287,14 +227,11 @@ const buildContext = (
 	})
 
 	// Get relevant imports
-	const imports = getRelevantImports(
-		byteRange,
-		scopeTree,
-		text.text,
-		options.filterImports,
-	)
+	const imports = getRelevantImports(entities, scopeTree, options.filterImports)
 
 	return {
+		filepath,
+		language,
 		scope,
 		entities,
 		siblings,
@@ -310,6 +247,7 @@ const buildContext = (
  * @param scopeTree - The scope tree
  * @param language - The programming language
  * @param options - Chunking options
+ * @param filepath - Optional file path of the source file
  * @returns Effect yielding chunks
  */
 export const chunk = (
@@ -318,6 +256,7 @@ export const chunk = (
 	scopeTree: ScopeTree,
 	language: Language,
 	options: ChunkOptions = {},
+	filepath?: string,
 ): Effect.Effect<Chunk[], ChunkError> => {
 	return Effect.try({
 		try: () => {
@@ -330,8 +269,8 @@ export const chunk = (
 
 			const maxSize = opts.maxChunkSize
 
-			// Step 1: Preprocess NWS counts
-			const nwsMap = preprocessNwsCount(rootNode, code)
+			// Step 1: Preprocess NWS cumulative sum for O(1) range queries
+			const cumsum = preprocessNwsCumsum(code)
 
 			// Step 2: Get root's children for processing
 			const children: SyntaxNode[] = []
@@ -343,7 +282,7 @@ export const chunk = (
 			}
 
 			// Step 3: Assign nodes to windows using greedy algorithm
-			const rawWindows = greedyAssignWindows(children, code, nwsMap, maxSize)
+			const rawWindows = greedyAssignWindows(children, code, cumsum, maxSize)
 
 			// Step 4: Merge adjacent windows
 			const mergedWindows = mergeAdjacentWindows(rawWindows, { maxSize })
@@ -360,7 +299,7 @@ export const chunk = (
 				const context =
 					opts.contextMode === 'none'
 						? { scope: [], entities: [], siblings: [], imports: [] }
-						: buildContext(text, scopeTree, opts)
+						: buildContext(text, scopeTree, opts, filepath, language)
 
 				return {
 					text: text.text,
@@ -386,6 +325,7 @@ export const chunk = (
  * @param scopeTree - The scope tree
  * @param language - The programming language
  * @param options - Chunking options
+ * @param filepath - Optional file path of the source file
  * @returns Async generator of chunks
  */
 export async function* streamChunks(
@@ -394,6 +334,7 @@ export async function* streamChunks(
 	scopeTree: ScopeTree,
 	language: Language,
 	options: ChunkOptions = {},
+	filepath?: string,
 ): AsyncGenerator<Chunk> {
 	// Merge options with defaults
 	const opts: Required<ChunkOptions> = {
@@ -404,8 +345,8 @@ export async function* streamChunks(
 
 	const maxSize = opts.maxChunkSize
 
-	// Preprocess NWS counts
-	const nwsMap = preprocessNwsCount(rootNode, code)
+	// Preprocess NWS cumulative sum for O(1) range queries
+	const cumsum = preprocessNwsCumsum(code)
 
 	// Get root's children
 	const children: SyntaxNode[] = []
@@ -417,7 +358,7 @@ export async function* streamChunks(
 	}
 
 	// Assign nodes to windows
-	const rawWindows = greedyAssignWindows(children, code, nwsMap, maxSize)
+	const rawWindows = greedyAssignWindows(children, code, cumsum, maxSize)
 
 	// Merge adjacent windows
 	const mergedWindows = mergeAdjacentWindows(rawWindows, { maxSize })
@@ -433,7 +374,7 @@ export async function* streamChunks(
 		const context =
 			opts.contextMode === 'none'
 				? { scope: [], entities: [], siblings: [], imports: [] }
-				: buildContext(text, scopeTree, opts)
+				: buildContext(text, scopeTree, opts, filepath, language)
 
 		yield {
 			text: text.text,

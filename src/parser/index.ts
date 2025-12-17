@@ -1,11 +1,15 @@
-import { Context, Effect, Layer } from 'effect'
+import { Effect } from 'effect'
 import {
 	Parser,
 	type Node as TSNode,
 	type Tree as TSTree,
 } from 'web-tree-sitter'
 import type { Language, ParseError, ParseResult } from '../types'
-import { type GrammarLoadError, getLanguageGrammar } from './languages'
+import {
+	clearGrammarCache,
+	type GrammarLoadError,
+	getLanguageGrammar,
+} from './languages'
 
 // Re-export language utilities
 export {
@@ -29,32 +33,6 @@ export class ParserInitError extends Error {
 		this.cause = cause
 	}
 }
-
-/**
- * Parser service interface for dependency injection
- */
-export interface ParserService {
-	readonly _tag: 'ParserService'
-
-	/**
-	 * Parse source code with a specific language
-	 */
-	parse(
-		code: string,
-		language: Language,
-	): Effect.Effect<ParseResult, ParseError | GrammarLoadError>
-
-	/**
-	 * Get the underlying tree-sitter parser instance
-	 */
-	getParser(): Parser
-}
-
-/**
- * ParserService tag for Effect Context
- */
-export const ParserService: Context.Tag<ParserService, ParserService> =
-	Context.GenericTag<ParserService>('ParserService')
 
 /**
  * Flag to track if tree-sitter has been initialized
@@ -163,30 +141,6 @@ export function parse(
 	})
 }
 
-/**
- * Create a ParserService implementation
- */
-function makeParserService(parser: Parser): ParserService {
-	return {
-		_tag: 'ParserService',
-		parse: (code: string, language: Language) => parse(parser, code, language),
-		getParser: () => parser,
-	}
-}
-
-/**
- * Live layer that provides ParserService
- */
-export const ParserServiceLive: Layer.Layer<ParserService, ParserInitError> =
-	Layer.effect(
-		ParserService,
-		Effect.gen(function* () {
-			yield* initParser()
-			const parser = new Parser()
-			return makeParserService(parser)
-		}),
-	)
-
 // ============================================================================
 // Public API - Unwraps Effect for consumers
 // ============================================================================
@@ -241,6 +195,7 @@ export async function initializeParser(): Promise<void> {
 
 /**
  * Reset the shared parser state (useful for testing)
+ * Also clears the grammar cache to ensure clean reinitialization
  */
 export function resetParser(): void {
 	if (sharedParser) {
@@ -248,4 +203,5 @@ export function resetParser(): void {
 		sharedParser = null
 	}
 	initialized = false
+	clearGrammarCache()
 }

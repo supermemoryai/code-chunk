@@ -1,11 +1,6 @@
 import type { SyntaxNode } from '../types'
 
 /**
- * Map from node ID to non-whitespace character count
- */
-export type NwsCountMap = Map<number, number>
-
-/**
  * Cumulative sum array for O(1) NWS range queries
  * cumsum[i] = count of non-whitespace chars in code[0..i-1]
  */
@@ -66,47 +61,16 @@ export const getNwsCountFromCumsum = (
 }
 
 /**
- * Preprocess the AST to compute NWS counts for all nodes
- *
- * @param rootNode - The root AST node
- * @param code - The source code
- * @returns Map from node ID to NWS count
- *
- * TODO: Implement NWS preprocessing with memoization
- */
-export const preprocessNwsCount = (
-	rootNode: SyntaxNode,
-	code: string,
-): NwsCountMap => {
-	// TODO: Implement NWS count preprocessing
-	// 1. Walk the tree
-	// 2. For each node, compute NWS count of its text
-	// 3. Store in map keyed by node ID
-	const map: NwsCountMap = new Map()
-	void rootNode
-	void code
-	return map
-}
-
-/**
- * Get the NWS count for a node from the precomputed map
+ * Get the NWS count for a node using the precomputed cumulative sum array.
+ * This is an O(1) operation.
  *
  * @param node - The AST node
- * @param nwsMap - The precomputed NWS count map
- * @param code - The source code (fallback if not in map)
+ * @param cumsum - The precomputed cumulative sum array
  * @returns The NWS count for the node
  */
-export const getNwsCount = (
+export const getNwsCountForNode = (
 	node: SyntaxNode,
-	nwsMap: NwsCountMap,
-	code: string,
+	cumsum: NwsCumsum,
 ): number => {
-	// Try to get from map first
-	const cached = nwsMap.get(node.id)
-	if (cached !== undefined) {
-		return cached
-	}
-	// Fallback: compute directly
-	const text = code.slice(node.startIndex, node.endIndex)
-	return countNws(text)
+	return getNwsCountFromCumsum(cumsum, node.startIndex, node.endIndex)
 }

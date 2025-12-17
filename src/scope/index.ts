@@ -2,8 +2,6 @@ import { Effect } from 'effect'
 import type { ExtractedEntity, ScopeTree } from '../types'
 import {
 	buildScopeTreeFromEntities,
-	createScopeNode,
-	findParentNode,
 	findScopeAtOffset,
 	flattenScopeTree,
 	getAncestorChain,
@@ -61,8 +59,6 @@ export const buildScopeTreeSync = (entities: ExtractedEntity[]): ScopeTree => {
 // Re-export utilities from tree.ts for public API
 export {
 	buildScopeTreeFromEntities,
-	createScopeNode,
-	findParentNode,
 	findScopeAtOffset,
 	flattenScopeTree,
 	getAncestorChain,

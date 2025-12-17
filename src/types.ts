@@ -241,7 +241,7 @@ export interface Chunk {
  * Options for chunking source code
  */
 export interface ChunkOptions {
-	/** Maximum size of each chunk in bytes (default: 4096) */
+	/** Maximum size of each chunk in bytes (default: 1500) */
 	maxChunkSize?: number
 	/** How much context to include (default: 'full') */
 	contextMode?: 'none' | 'minimal' | 'full'
@@ -259,17 +259,27 @@ export interface ChunkOptions {
 export interface Chunker {
 	/**
 	 * Chunk source code into pieces with context
+	 * @param filepath The file path (used for language detection)
 	 * @param source The source code to chunk
 	 * @param options Chunking options
 	 * @returns Array of chunks
 	 */
-	chunk(source: string, options?: ChunkOptions): Promise<Chunk[]>
+	chunk(
+		filepath: string,
+		source: string,
+		options?: ChunkOptions,
+	): Promise<Chunk[]>
 
 	/**
 	 * Stream chunks as they are generated
+	 * @param filepath The file path (used for language detection)
 	 * @param source The source code to chunk
 	 * @param options Chunking options
 	 * @returns Async iterable of chunks
 	 */
-	stream(source: string, options?: ChunkOptions): AsyncIterable<Chunk>
+	stream(
+		filepath: string,
+		source: string,
+		options?: ChunkOptions,
+	): AsyncIterable<Chunk>
 }

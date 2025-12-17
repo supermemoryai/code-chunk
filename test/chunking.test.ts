@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'bun:test'
-import { type Chunk, chunk, createChunker, type Language } from '../src'
+import {
+	type Chunk,
+	chunk,
+	chunkStream,
+	createChunker,
+	type Language,
+} from '../src'
 import {
 	countNws,
 	getNwsCountFromCumsum,
@@ -143,35 +149,121 @@ function c() { return 3 }
 })
 
 // ============================================================================
-// Chunker Factory Tests
+// Streaming API Tests
 // ============================================================================
 
-describe('createChunker', () => {
-	test('creates a reusable chunker instance', async () => {
-		const chunker = createChunker('test.ts', { maxChunkSize: 500 })
-
-		const code1 = 'const a = 1'
-		const code2 = 'const b = 2'
-
-		const chunks1 = await chunker.chunk(code1)
-		const chunks2 = await chunker.chunk(code2)
-
-		expect(chunks1.length).toBeGreaterThan(0)
-		expect(chunks2.length).toBeGreaterThan(0)
-	})
-
-	test('chunker.stream yields chunks', async () => {
-		const chunker = createChunker('test.ts')
+describe('stream', () => {
+	test('streams chunks from code', async () => {
 		const code = `
 function a() { return 1 }
 function b() { return 2 }
 `
 		const chunks: Chunk[] = []
-		for await (const c of chunker.stream(code)) {
+		for await (const c of chunkStream('test.ts', code)) {
 			chunks.push(c)
 		}
 
 		expect(chunks.length).toBeGreaterThan(0)
+		expect(chunks[0]).toHaveProperty('text')
+		expect(chunks[0]).toHaveProperty('context')
+	})
+
+	test('stream respects options', async () => {
+		const functions = Array.from(
+			{ length: 10 },
+			(_, i) => `function fn${i}() { return ${i} }`,
+		).join('\n')
+
+		const chunks: Chunk[] = []
+		for await (const c of chunkStream('test.ts', functions, {
+			maxChunkSize: 100,
+		})) {
+			chunks.push(c)
+		}
+
+		// With small maxChunkSize, should produce multiple chunks
+		expect(chunks.length).toBeGreaterThan(1)
+	})
+
+	test('stream yields chunks with correct index (totalChunks is -1 for streaming)', async () => {
+		const code = `
+function a() { return 1 }
+function b() { return 2 }
+function c() { return 3 }
+`
+		const chunks: Chunk[] = []
+		for await (const c of chunkStream('test.ts', code)) {
+			chunks.push(c)
+		}
+
+		// Streaming doesn't know total upfront, so totalChunks is -1
+		chunks.forEach((c, i) => {
+			expect(c.index).toBe(i)
+			expect(c.totalChunks).toBe(-1)
+		})
+	})
+})
+
+// ============================================================================
+// Chunker Factory Tests
+// ============================================================================
+
+describe('createChunker', () => {
+	test('creates a reusable chunker instance', async () => {
+		const chunker = createChunker({ maxChunkSize: 500 })
+
+		const code1 = 'const a = 1'
+		const code2 = 'const b = 2'
+
+		const chunks1 = await chunker.chunk('test.ts', code1)
+		const chunks2 = await chunker.chunk('test.ts', code2)
+
+		expect(chunks1.length).toBeGreaterThan(0)
+		expect(chunks2.length).toBeGreaterThan(0)
+	})
+
+	test('chunker can chunk multiple files with different extensions', async () => {
+		const chunker = createChunker({ maxChunkSize: 500 })
+
+		const tsCode = 'const a: number = 1'
+		const jsCode = 'const b = 2'
+
+		const tsChunks = await chunker.chunk('test.ts', tsCode)
+		const jsChunks = await chunker.chunk('test.js', jsCode)
+
+		expect(tsChunks.length).toBeGreaterThan(0)
+		expect(jsChunks.length).toBeGreaterThan(0)
+	})
+
+	test('chunker.stream yields chunks', async () => {
+		const chunker = createChunker()
+		const code = `
+function a() { return 1 }
+function b() { return 2 }
+`
+		const chunks: Chunk[] = []
+		for await (const c of chunker.stream('test.ts', code)) {
+			chunks.push(c)
+		}
+
+		expect(chunks.length).toBeGreaterThan(0)
+	})
+
+	test('chunker allows per-call option overrides', async () => {
+		const chunker = createChunker({ maxChunkSize: 1500 })
+
+		const functions = Array.from(
+			{ length: 10 },
+			(_, i) => `function fn${i}() { return ${i} }`,
+		).join('\n')
+
+		// Override maxChunkSize for this specific call
+		const chunks = await chunker.chunk('test.ts', functions, {
+			maxChunkSize: 100,
+		})
+
+		// With small maxChunkSize, should produce multiple chunks
+		expect(chunks.length).toBeGreaterThan(1)
 	})
 })
 
@@ -343,5 +435,297 @@ function documented() {
 `
 		const chunks = await chunk('test.ts', code)
 		expect(chunks.length).toBeGreaterThan(0)
+	})
+})
+
+// ============================================================================
+// Integration Tests - End-to-End Flow
+// ============================================================================
+
+describe('integration: end-to-end flow', () => {
+	test('full pipeline: parse -> extract -> scope -> chunk -> context', async () => {
+		console.log('\n--- Integration Test: Full Pipeline ---\n')
+
+		// Realistic TypeScript file with imports, class, methods, and docstrings
+		const code = `
+import { Database } from './db'
+import { Logger } from './utils'
+
+/**
+ * Service for managing user accounts.
+ * Handles CRUD operations and authentication.
+ */
+export class UserService {
+  private db: Database
+  private logger: Logger
+
+  constructor(db: Database, logger: Logger) {
+    this.db = db
+    this.logger = logger
+  }
+
+  /**
+   * Fetch a user by their unique ID.
+   * @param id - The user's unique identifier
+   * @returns The user object or null if not found
+   */
+  async getUser(id: string): Promise<User | null> {
+    this.logger.info(\`Fetching user: \${id}\`)
+    return this.db.query('SELECT * FROM users WHERE id = ?', [id])
+  }
+
+  /**
+   * Create a new user account.
+   * @param data - The user data to insert
+   * @returns The created user with generated ID
+   */
+  async createUser(data: CreateUserInput): Promise<User> {
+    this.logger.info('Creating new user')
+    const result = await this.db.insert('users', data)
+    return { id: result.insertId, ...data }
+  }
+
+  /**
+   * Delete a user by ID.
+   * @param id - The user's unique identifier
+   */
+  async deleteUser(id: string): Promise<void> {
+    this.logger.warn(\`Deleting user: \${id}\`)
+    await this.db.delete('users', { id })
+  }
+}
+
+/**
+ * Helper function to validate user input.
+ */
+function validateUserInput(input: unknown): input is CreateUserInput {
+  return typeof input === 'object' && input !== null && 'email' in input
+}
+`
+
+		const filepath = 'services/user.ts'
+		console.log(`[1/5] Input: ${filepath} (${code.length} bytes)`)
+
+		// Step 1: Run the chunker
+		console.log('[2/5] Running chunk() with maxChunkSize=500...')
+		const startTime = performance.now()
+		const chunks = await chunk(filepath, code, {
+			maxChunkSize: 500,
+			siblingDetail: 'signatures',
+			filterImports: true,
+		})
+		const elapsed = (performance.now() - startTime).toFixed(2)
+		console.log(
+			`[3/5] Chunking complete: ${chunks.length} chunks in ${elapsed}ms`,
+		)
+
+		// Validate basic structure
+		expect(chunks.length).toBeGreaterThan(0)
+
+		// Step 2: Log each chunk with context
+		console.log('\n[4/5] Chunk details:')
+		for (const c of chunks) {
+			console.log(`\n  Chunk ${c.index + 1}/${c.totalChunks}:`)
+			console.log(
+				`    - Lines: ${c.lineRange.start + 1}-${c.lineRange.end + 1}`,
+			)
+			console.log(`    - Bytes: ${c.byteRange.start}-${c.byteRange.end}`)
+			console.log(`    - NWS chars: ~${c.text.replace(/\s/g, '').length}`)
+
+			// Context info
+			const ctx = c.context
+			console.log(`    - Filepath: ${ctx.filepath}`)
+			console.log(`    - Language: ${ctx.language}`)
+
+			if (ctx.scope.length > 0) {
+				const scopeChain = ctx.scope
+					.map((s) => `${s.type}:${s.name}`)
+					.join(' > ')
+				console.log(`    - Scope: ${scopeChain}`)
+			}
+
+			if (ctx.entities.length > 0) {
+				console.log(`    - Entities (${ctx.entities.length}):`)
+				for (const e of ctx.entities) {
+					const partial = e.isPartial ? ' [PARTIAL]' : ''
+					const doc = e.docstring ? ` // "${e.docstring.slice(0, 30)}..."` : ''
+					console.log(`        * ${e.type}: ${e.name}${partial}${doc}`)
+				}
+			}
+
+			if (ctx.siblings.length > 0) {
+				console.log(`    - Siblings (${ctx.siblings.length}):`)
+				for (const s of ctx.siblings) {
+					console.log(
+						`        * ${s.type}: ${s.name} (${s.position}, distance=${s.distance})`,
+					)
+				}
+			}
+
+			if (ctx.imports.length > 0) {
+				console.log(
+					`    - Imports: ${ctx.imports.map((i) => `${i.name} from "${i.source}"`).join(', ')}`,
+				)
+			}
+
+			// Show full chunk text with indentation
+			console.log('    - Text:')
+			const lines = c.text.split('\n')
+			for (const line of lines) {
+				console.log(`        ${line}`)
+			}
+		}
+
+		// Step 3: Validate context correctness
+		console.log('\n[5/5] Validating context...')
+
+		// All chunks should have filepath and language
+		for (const c of chunks) {
+			expect(c.context.filepath).toBe(filepath)
+			expect(c.context.language).toBe('typescript')
+		}
+
+		// At least one chunk should have the UserService class in scope or entities
+		const hasUserService = chunks.some(
+			(c) =>
+				c.context.entities.some((e) => e.name === 'UserService') ||
+				c.context.scope.some((s) => s.name === 'UserService'),
+		)
+		expect(hasUserService).toBe(true)
+
+		// Check that methods are detected
+		const allEntities = chunks.flatMap((c) => c.context.entities)
+		const methodNames = allEntities
+			.filter((e) => e.type === 'method')
+			.map((e) => e.name)
+		expect(methodNames).toContain('getUser')
+		expect(methodNames).toContain('createUser')
+		expect(methodNames).toContain('deleteUser')
+
+		// Check imports are captured
+		const allImports = chunks.flatMap((c) => c.context.imports)
+		const importNames = allImports.map((i) => i.name)
+		// With filterImports=true, we should have imports that are used in chunks
+		console.log(
+			`    - Total unique imports found: ${[...new Set(importNames)].join(', ')}`,
+		)
+
+		// Verify chunks can reconstruct original code (no gaps/overlaps)
+		const sortedChunks = [...chunks].sort(
+			(a, b) => a.byteRange.start - b.byteRange.start,
+		)
+		let lastEnd = sortedChunks[0]?.byteRange.start ?? 0
+		for (const c of sortedChunks) {
+			// Chunks should not overlap
+			expect(c.byteRange.start).toBeGreaterThanOrEqual(lastEnd)
+			lastEnd = c.byteRange.end
+		}
+
+		console.log('\n--- Integration Test Complete ---\n')
+	})
+
+	test('streaming: processes chunks incrementally', async () => {
+		console.log('\n--- Integration Test: Streaming ---\n')
+
+		const code = `
+function processItem(item: Item): Result {
+  const validated = validate(item)
+  const transformed = transform(validated)
+  return finalize(transformed)
+}
+
+function validate(item: Item): ValidatedItem {
+  if (!item.id) throw new Error('Missing id')
+  return { ...item, validated: true }
+}
+
+function transform(item: ValidatedItem): TransformedItem {
+  return { ...item, transformed: true }
+}
+
+function finalize(item: TransformedItem): Result {
+  return { success: true, data: item }
+}
+`
+
+		console.log('[1/3] Starting stream with maxChunkSize=200...')
+		let chunkCount = 0
+		const startTime = performance.now()
+
+		for await (const c of chunkStream('pipeline.ts', code, {
+			maxChunkSize: 200,
+		})) {
+			chunkCount++
+			console.log(`[2/3] Received chunk ${chunkCount}:`)
+			console.log(`    - Index: ${c.index} (totalChunks: ${c.totalChunks})`)
+			console.log(
+				`    - Entities: ${c.context.entities.map((e) => e.name).join(', ') || 'none'}`,
+			)
+
+			// In streaming mode, totalChunks is -1 (unknown upfront)
+			expect(c.totalChunks).toBe(-1)
+			expect(c.index).toBe(chunkCount - 1)
+		}
+
+		const elapsed = (performance.now() - startTime).toFixed(2)
+		console.log(`[3/3] Stream complete: ${chunkCount} chunks in ${elapsed}ms`)
+
+		expect(chunkCount).toBeGreaterThan(0)
+		console.log('\n--- Streaming Test Complete ---\n')
+	})
+
+	test('chunker reuse: same chunker for multiple files', async () => {
+		console.log('\n--- Integration Test: Chunker Reuse ---\n')
+
+		const chunker = createChunker({ maxChunkSize: 300, siblingDetail: 'names' })
+
+		const files = [
+			{
+				path: 'utils/math.ts',
+				code: `
+export function add(a: number, b: number): number { return a + b }
+export function subtract(a: number, b: number): number { return a - b }
+`,
+			},
+			{
+				path: 'utils/string.py',
+				code: `
+def capitalize(s: str) -> str:
+    return s.capitalize()
+
+def lowercase(s: str) -> str:
+    return s.lower()
+`,
+			},
+			{
+				path: 'utils/array.go',
+				code: `
+package utils
+
+func Sum(nums []int) int {
+    total := 0
+    for _, n := range nums {
+        total += n
+    }
+    return total
+}
+`,
+			},
+		]
+
+		console.log('[1/2] Processing files with same chunker instance...')
+
+		for (const file of files) {
+			const chunks = await chunker.chunk(file.path, file.code)
+			console.log(
+				`    - ${file.path}: ${chunks.length} chunks, language=${chunks[0]?.context.language}`,
+			)
+
+			expect(chunks.length).toBeGreaterThan(0)
+			expect(chunks[0]?.context.filepath).toBe(file.path)
+		}
+
+		console.log('[2/2] Chunker reuse test complete')
+		console.log('\n--- Chunker Reuse Test Complete ---\n')
 	})
 })
