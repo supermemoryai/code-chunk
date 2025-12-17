@@ -468,3 +468,155 @@ func subtract(a, b int) int {
 		expect(cls).toBeDefined()
 	})
 })
+
+// ============================================================================
+// Context Attachment Tests
+// ============================================================================
+
+describe('context attachment', () => {
+	test('getEntitiesInRange returns entities with isPartial flag', async () => {
+		const code = `function foo() { return 1 }
+function bar() { return 2 }
+function baz() { return 3 }`
+		const entities = await getEntities(code, 'typescript')
+		const tree = buildScopeTreeFromEntities(entities)
+
+		// Import the function we need to test
+		const { getEntitiesInRange } = await import('../src/context/index')
+
+		// Get entities for a range that fully contains 'bar' but not 'foo' or 'baz'
+		const barEntity = entities.find((e) => e.name === 'bar')
+		if (barEntity) {
+			const entitiesInRange = getEntitiesInRange(barEntity.byteRange, tree)
+
+			// Should find bar
+			const bar = entitiesInRange.find((e) => e.name === 'bar')
+			expect(bar).toBeDefined()
+			// bar should NOT be partial since we're using its exact range
+			expect(bar?.isPartial).toBe(false)
+		}
+	})
+
+	test('getEntitiesInRange marks partial entities correctly', async () => {
+		const code = `class BigClass {
+  method1() { return 1 }
+  method2() { return 2 }
+  method3() { return 3 }
+}`
+		const entities = await getEntities(code, 'typescript')
+		const tree = buildScopeTreeFromEntities(entities)
+
+		const { getEntitiesInRange } = await import('../src/context/index')
+
+		// Get just method2's range - this should be inside BigClass
+		const method2 = entities.find((e) => e.name === 'method2')
+		if (method2) {
+			const entitiesInRange = getEntitiesInRange(method2.byteRange, tree)
+
+			// method2 should not be partial (its full range is included)
+			const m2 = entitiesInRange.find((e) => e.name === 'method2')
+			expect(m2?.isPartial).toBe(false)
+
+			// BigClass should be partial (we only have a slice of it)
+			const cls = entitiesInRange.find((e) => e.name === 'BigClass')
+			if (cls) {
+				expect(cls.isPartial).toBe(true)
+			}
+		}
+	})
+
+	test('getEntitiesInRange includes docstring and lineRange', async () => {
+		const code = `/**
+ * A test function with docs.
+ */
+function documented() {
+  return 1
+}`
+		const entities = await getEntities(code, 'typescript')
+		const tree = buildScopeTreeFromEntities(entities)
+
+		const { getEntitiesInRange } = await import('../src/context/index')
+
+		const fn = entities.find((e) => e.name === 'documented')
+		if (fn) {
+			const entitiesInRange = getEntitiesInRange(fn.byteRange, tree)
+			const docFn = entitiesInRange.find((e) => e.name === 'documented')
+
+			expect(docFn).toBeDefined()
+			expect(docFn?.lineRange).toBeDefined()
+			// Docstring should be present if extracted
+			if (fn.docstring) {
+				expect(docFn?.docstring).toContain('test function')
+			}
+		}
+	})
+
+	test('attachContext includes filepath and language', async () => {
+		const { Effect } = await import('effect')
+		const { attachContext } = await import('../src/context/index')
+
+		const code = `function test() { return 1 }`
+		const entities = await getEntities(code, 'typescript')
+		const tree = buildScopeTreeFromEntities(entities)
+
+		const fn = entities[0]
+		if (fn) {
+			const mockText = {
+				text: code,
+				byteRange: { start: 0, end: code.length },
+				lineRange: { start: 0, end: 0 },
+			}
+
+			const chunk = await Effect.runPromise(
+				attachContext({
+					text: mockText,
+					scopeTree: tree,
+					options: {},
+					index: 0,
+					totalChunks: 1,
+					filepath: 'test.ts',
+					language: 'typescript',
+				}),
+			)
+
+			expect(chunk.context.filepath).toBe('test.ts')
+			expect(chunk.context.language).toBe('typescript')
+		}
+	})
+
+	test('attachContext respects contextMode none', async () => {
+		const { Effect } = await import('effect')
+		const { attachContext } = await import('../src/context/index')
+
+		const code = `function test() { return 1 }`
+		const entities = await getEntities(code, 'typescript')
+		const tree = buildScopeTreeFromEntities(entities)
+
+		const mockText = {
+			text: code,
+			byteRange: { start: 0, end: code.length },
+			lineRange: { start: 0, end: 0 },
+		}
+
+		const chunk = await Effect.runPromise(
+			attachContext({
+				text: mockText,
+				scopeTree: tree,
+				options: { contextMode: 'none' },
+				index: 0,
+				totalChunks: 1,
+				filepath: 'test.ts',
+				language: 'typescript',
+			}),
+		)
+
+		// Even in 'none' mode, filepath and language should be present
+		expect(chunk.context.filepath).toBe('test.ts')
+		expect(chunk.context.language).toBe('typescript')
+		// But scope, entities, siblings, imports should be empty
+		expect(chunk.context.scope).toEqual([])
+		expect(chunk.context.entities).toEqual([])
+		expect(chunk.context.siblings).toEqual([])
+		expect(chunk.context.imports).toEqual([])
+	})
+})
