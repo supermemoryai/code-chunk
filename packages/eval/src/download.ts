@@ -10,7 +10,7 @@ import { existsSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-const DATA_DIR = join(import.meta.dir, 'data', 'repoeval')
+const DATA_DIR = join(import.meta.dir, '..', 'data', 'repoeval')
 const DATASETS_DIR = join(DATA_DIR, 'datasets')
 const REPOS_DIR = join(DATA_DIR, 'repositories', 'function_level')
 
@@ -105,7 +105,7 @@ export async function loadTasks(
 
 		// Clean up task_id format
 		const repo = task.metadata.task_id.replace('--', '_').split('/')[0]
-		if (!REPOS_FUNCTION.includes(repo)) continue
+		if (!repo || !REPOS_FUNCTION.includes(repo)) continue
 
 		if (!(repo in repo2idx)) {
 			repo2idx[repo] = 0
@@ -113,9 +113,9 @@ export async function loadTasks(
 
 		task.metadata.task_id = task.metadata.task_id
 			.replace('--', '_')
-			.replace('idx', String(repo2idx[repo]))
+			.replace('idx', String(repo2idx[repo] ?? 0))
 		task.metadata.line_no = task.metadata.lineno
-		repo2idx[repo]++
+		repo2idx[repo] = (repo2idx[repo] ?? 0) + 1
 
 		tasks.push(task)
 	}

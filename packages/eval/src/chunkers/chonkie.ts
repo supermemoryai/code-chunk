@@ -8,8 +8,9 @@
 import { spawn } from 'node:child_process'
 import { dirname, join } from 'node:path'
 
-const EVAL_DIR = dirname(import.meta.dir)
-const PYTHON_PATH = join(EVAL_DIR, '.venv', 'bin', 'python')
+// Go up from src/chunkers to package root
+const PACKAGE_ROOT = join(dirname(import.meta.dir), '..')
+const PYTHON_PATH = join(PACKAGE_ROOT, '.venv', 'bin', 'python')
 const SCRIPT_PATH = join(import.meta.dir, 'chonkie_chunk.py')
 
 interface ChunkResult {

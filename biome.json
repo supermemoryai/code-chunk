@@ -1,5 +1,5 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.3.8/schema.json",
+	"$schema": "https://biomejs.dev/schemas/2.3.10/schema.json",
 	"assist": {
 		"enabled": true,
 		"actions": {
@@ -31,7 +31,7 @@
 	},
 	"overrides": [
 		{
-			"includes": ["test/**/*.ts"],
+			"includes": ["**/test/**/*.ts", "packages/astchunk/test/**/*.ts"],
 			"linter": {
 				"rules": {
 					"style": {

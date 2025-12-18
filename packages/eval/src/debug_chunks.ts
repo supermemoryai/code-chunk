@@ -1,13 +1,13 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { chunk } from '../src'
+import { chunk } from '@supermemory/astchunk'
 import { chunkFile as chunkFixed } from './chunkers/fixed'
 
 // Check deepmind_tracr/tracr/craft/transformers.py
 // Assume we're looking for lines 100-150
 const testFile = join(
 	import.meta.dir,
-	'data/repoeval/repositories/function_level/deepmind_tracr/tracr/craft/transformers.py',
+	'../data/repoeval/repositories/function_level/deepmind_tracr/tracr/craft/transformers.py',
 )
 const code = readFileSync(testFile, 'utf-8')
 const targetStart = 100

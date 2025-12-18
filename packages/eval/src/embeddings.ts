@@ -8,7 +8,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import OpenAI from 'openai'
 
-const CACHE_DIR = join(import.meta.dir, 'cache', 'embeddings')
+const CACHE_DIR = join(import.meta.dir, '..', 'cache', 'embeddings')
 const MODEL = 'text-embedding-3-small'
 const BATCH_SIZE = 100
 
@@ -74,7 +74,7 @@ async function embedBatch(texts: string[]): Promise<number[][]> {
 	const indexMap: number[] = []
 
 	for (let i = 0; i < texts.length; i++) {
-		const text = texts[i].trim()
+		const text = texts[i]?.trim() ?? ''
 		if (text.length > 0) {
 			nonEmptyTexts.push(text)
 			indexMap.push(i)
@@ -100,7 +100,11 @@ async function embedBatch(texts: string[]): Promise<number[][]> {
 	// Map back to original indices, filling zeros for empty texts
 	const result: number[][] = texts.map(() => new Array(1536).fill(0))
 	for (let i = 0; i < indexMap.length; i++) {
-		result[indexMap[i]] = embeddings[i]
+		const idx = indexMap[i]
+		const emb = embeddings[i]
+		if (idx !== undefined && emb !== undefined) {
+			result[idx] = emb
+		}
 	}
 
 	return result
@@ -125,12 +129,14 @@ export async function embedTexts(
 
 	// Check cache for each text
 	for (let i = 0; i < texts.length; i++) {
-		const cached = await loadFromCache(texts[i])
+		const text = texts[i]
+		if (!text) continue
+		const cached = await loadFromCache(text)
 		if (cached) {
 			results[i] = cached
 		} else {
 			uncachedIndices.push(i)
-			uncachedTexts.push(texts[i])
+			uncachedTexts.push(text)
 		}
 	}
 
@@ -151,8 +157,11 @@ export async function embedTexts(
 		// Save to cache and store results
 		for (let j = 0; j < embeddings.length; j++) {
 			const originalIdx = batchIndices[j]
-			results[originalIdx] = embeddings[j]
-			await saveToCache(batch[j], embeddings[j])
+			const embedding = embeddings[j]
+			const text = batch[j]
+			if (originalIdx === undefined || !embedding || !text) continue
+			results[originalIdx] = embedding
+			await saveToCache(text, embedding)
 		}
 
 		if (onProgress) {
@@ -176,9 +185,11 @@ export function cosineSimilarity(a: number[], b: number[]): number {
 	let normB = 0
 
 	for (let i = 0; i < a.length; i++) {
-		dotProduct += a[i] * b[i]
-		normA += a[i] * a[i]
-		normB += b[i] * b[i]
+		const ai = a[i] ?? 0
+		const bi = b[i] ?? 0
+		dotProduct += ai * bi
+		normA += ai * ai
+		normB += bi * bi
 	}
 
 	return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB))

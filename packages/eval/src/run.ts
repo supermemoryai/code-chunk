@@ -23,7 +23,7 @@ import {
 import { embedTexts, topK } from './embeddings'
 import { aggregateMetrics, computeMetrics } from './metrics'
 
-const RESULTS_DIR = join(import.meta.dir, 'results')
+const RESULTS_DIR = join(import.meta.dir, '..', 'results')
 const K_VALUES = [5, 10] // Top-k values for retrieval
 const MAX_CHUNK_SIZE = 1500 // NWS characters per chunk
 
@@ -67,7 +67,7 @@ interface QueryResult {
 	metrics: Record<number, MetricsAtK> // metrics per k value
 }
 
-type ChunkerType = 'ast' | 'fixed' | 'chonkie'
+type ChunkerType = 'ast' | 'chonkie' | 'fixed'
 
 interface EvalResult {
 	chunker: ChunkerType
@@ -187,6 +187,7 @@ async function evaluateRepo(
 	for (let i = 0; i < tasks.length; i++) {
 		const task = tasks[i]
 		const queryEmb = queryEmbeddings[i]
+		if (!task || !queryEmb) continue
 
 		const topKResults = topK(queryEmb, chunkEmbeddings, maxK)
 
@@ -201,7 +202,7 @@ async function evaluateRepo(
 			.map((c) => c.id)
 
 		const relevantSet = new Set(relevantChunkIds)
-		const retrievedIds = topKResults.map((r) => allChunks[r.index].id)
+		const retrievedIds = topKResults.map((r) => allChunks[r.index]?.id ?? '')
 
 		const metrics: Record<number, MetricsAtK> = {}
 		for (const k of K_VALUES) {
@@ -214,7 +215,7 @@ async function evaluateRepo(
 			groundTruthLines: targetLines,
 			groundTruthFile: targetFile,
 			retrievedChunks: topKResults.map((r, rank) => ({
-				id: allChunks[r.index].id,
+				id: allChunks[r.index]?.id ?? '',
 				score: r.score,
 				rank: rank + 1,
 			})),
@@ -225,7 +226,10 @@ async function evaluateRepo(
 
 	const summary: Record<number, MetricsAtK> = {}
 	for (const k of K_VALUES) {
-		summary[k] = aggregateMetrics(queryResults.map((q) => q.metrics[k]))
+		const metricsAtK = queryResults
+			.map((q) => q.metrics[k])
+			.filter((m): m is MetricsAtK => m !== undefined)
+		summary[k] = aggregateMetrics(metricsAtK)
 	}
 
 	clearStatus()
@@ -259,7 +263,8 @@ function printMetricsTable(
 		)
 
 		for (const name of chunkerNames) {
-			const m = summaries[name][k]
+			const m = summaries[name]?.[k]
+			if (!m) continue
 			const ndcg = yellow(`${(m.ndcg * 100).toFixed(1)}%`.padStart(8))
 			const prec = `${(m.precision * 100).toFixed(1)}%`.padStart(8)
 			const recall = `${(m.recall * 100).toFixed(1)}%`.padStart(8)
@@ -284,6 +289,7 @@ async function main() {
 	const tasksByRepo = new Map<string, RepoEvalTask[]>()
 	for (const task of allTasks) {
 		const repo = task.metadata.task_id.split('/')[0]
+		if (!repo) continue
 		if (!tasksByRepo.has(repo)) {
 			tasksByRepo.set(repo, [])
 		}
@@ -300,8 +306,16 @@ async function main() {
 	const repos = getRepos()
 	const chunkerTypes: ChunkerType[] = ['ast', 'chonkie', 'fixed']
 
+	// Display names for chunkers
+	const chunkerNames: Record<ChunkerType, string> = {
+		ast: 'AST',
+		chonkie: 'Chonkie',
+		fixed: 'Fixed',
+	}
+
 	for (let repoIdx = 0; repoIdx < repos.length; repoIdx++) {
 		const repo = repos[repoIdx]
+		if (!repo) continue
 		const tasks = tasksByRepo.get(repo)
 		if (!tasks || tasks.length === 0) {
 			continue
@@ -324,49 +338,57 @@ async function main() {
 
 		// Print summary line for this repo
 		const summaryParts = chunkerTypes.map((ct) => {
-			const { chunkCount, embedStats } = repoResults[ct]
-			const cachedPct = Math.round((embedStats.cached / embedStats.total) * 100)
-			return `${cyan(ct)}: ${chunkCount} chunks ${dim(`(${cachedPct}% cached)`)}`
+			const r = repoResults[ct]
+			if (!r) return ''
+			const { chunkCount, embedStats } = r
+			const cachedPct =
+				embedStats.total > 0
+					? Math.round((embedStats.cached / embedStats.total) * 100)
+					: 0
+			return `${cyan(chunkerNames[ct])}: ${chunkCount} ${dim(`(${cachedPct}%)`)}`
 		})
 		console.log(`  ${summaryParts.join('  ')}`)
 
 		// Print quick metrics comparison
 		const k = K_VALUES[0]
-		const metricsLine = chunkerTypes.map((ct) => {
-			const ndcg = (repoResults[ct].result.summary[k].ndcg * 100).toFixed(1)
-			return `${ct}: ${yellow(ndcg)}%`
-		})
-		console.log(`  ${dim(`nDCG@${k}:`)} ${metricsLine.join('  ')}\n`)
+		if (k !== undefined) {
+			const metricsLine = chunkerTypes.map((ct) => {
+				const r = repoResults[ct]
+				if (!r) return ''
+				const ndcg = (r.result.summary[k]?.ndcg ?? 0) * 100
+				return `${chunkerNames[ct]}: ${yellow(ndcg.toFixed(1))}%`
+			})
+			console.log(`  ${dim(`nDCG@${k}:`)} ${metricsLine.join('  ')}\n`)
+		}
 	}
 
 	// Step 4: Compute overall summary
 	console.log(bold('Results'))
 	console.log(dim('─'.repeat(60)))
 
-	const astResults = allResults.filter((r) => r.chunker === 'ast')
-	const chonkieResults = allResults.filter((r) => r.chunker === 'chonkie')
-	const fixedResults = allResults.filter((r) => r.chunker === 'fixed')
-
-	// Aggregate metrics for each k value
-	const astOverall: Record<number, MetricsAtK> = {}
-	const chonkieOverall: Record<number, MetricsAtK> = {}
-	const fixedOverall: Record<number, MetricsAtK> = {}
-	for (const k of K_VALUES) {
-		astOverall[k] = aggregateMetrics(astResults.map((r) => r.summary[k]))
-		chonkieOverall[k] = aggregateMetrics(
-			chonkieResults.map((r) => r.summary[k]),
-		)
-		fixedOverall[k] = aggregateMetrics(fixedResults.map((r) => r.summary[k]))
+	// Aggregate results by chunker type
+	const overallByChunker: Record<string, Record<number, MetricsAtK>> = {}
+	for (const ct of chunkerTypes) {
+		const results = allResults.filter((r) => r.chunker === ct)
+		const name = chunkerNames[ct]
+		overallByChunker[name] = {}
+		for (const k of K_VALUES) {
+			const metricsAtK = results
+				.map((r) => r.summary[k])
+				.filter((m): m is MetricsAtK => m !== undefined)
+			const chunkerMetrics = overallByChunker[name]
+			if (chunkerMetrics) {
+				chunkerMetrics[k] = aggregateMetrics(metricsAtK)
+			}
+		}
 	}
 
-	printMetricsTable({
-		AST: astOverall,
-		Chonkie: chonkieOverall,
-		Fixed: fixedOverall,
-	})
+	printMetricsTable(overallByChunker)
 
-	// Compute improvements for each k (comparing AST and Chonkie against Fixed baseline)
+	// Compute improvements vs Fixed baseline
+	const fixedOverall = overallByChunker[chunkerNames.fixed]
 	const computeImprovement = (a: number, b: number): string => {
+		if (b === 0) return 'N/A'
 		const improvement = ((a - b) / b) * 100
 		const sign = improvement >= 0 ? '+' : ''
 		return improvement >= 0
@@ -376,9 +398,15 @@ async function main() {
 
 	console.log(dim('vs Fixed baseline:'))
 	for (const k of K_VALUES) {
-		console.log(
-			`  k=${k}: ${cyan('AST')} ${computeImprovement(astOverall[k].ndcg, fixedOverall[k].ndcg)} nDCG  ${cyan('Chonkie')} ${computeImprovement(chonkieOverall[k].ndcg, fixedOverall[k].ndcg)} nDCG`,
-		)
+		const parts = chunkerTypes
+			.filter((ct) => ct !== 'fixed')
+			.map((ct) => {
+				const overall = overallByChunker[chunkerNames[ct]]
+				const fixedNdcg = fixedOverall?.[k]?.ndcg ?? 0
+				const overallNdcg = overall?.[k]?.ndcg ?? 0
+				return `${cyan(chunkerNames[ct])} ${computeImprovement(overallNdcg, fixedNdcg)}`
+			})
+		console.log(`  k=${k}: ${parts.join('  ')}`)
 	}
 
 	// Step 5: Save results
@@ -390,19 +418,17 @@ async function main() {
 		summaryPath,
 		JSON.stringify(
 			{
-				overall: {
-					ast: astOverall,
-					chonkie: chonkieOverall,
-					fixed: fixedOverall,
-				},
+				overall: overallByChunker,
 				perRepo: Object.fromEntries(
 					repos.map((repo) => [
 						repo,
-						{
-							ast: astResults.find((r) => r.repo === repo)?.summary,
-							chonkie: chonkieResults.find((r) => r.repo === repo)?.summary,
-							fixed: fixedResults.find((r) => r.repo === repo)?.summary,
-						},
+						Object.fromEntries(
+							chunkerTypes.map((ct) => [
+								ct,
+								allResults.find((r) => r.repo === repo && r.chunker === ct)
+									?.summary,
+							]),
+						),
 					]),
 				),
 				config: { kValues: K_VALUES, maxChunkSize: MAX_CHUNK_SIZE },
@@ -412,6 +438,7 @@ async function main() {
 			2,
 		),
 	)
+
 	// Save detailed results
 	const detailedPath = join(RESULTS_DIR, `detailed_${timestamp}.json`)
 	await writeFile(detailedPath, JSON.stringify(allResults, null, 2))

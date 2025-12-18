@@ -5,7 +5,7 @@ coverage
 dist
 out
 build
-.DS_Store
+e
 *.pem
 .idea
 npm-debug.log*
@@ -20,6 +20,3 @@ yarn-error.log*
 .turbo
 todo.md
 plan.md
-eval/cache
-eval/results
-eval/data
