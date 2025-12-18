@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { chunk } from '../src'
-import { chunkFixed } from './chunkers/fixed'
+import { chunkFile as chunkFixed } from './chunkers/fixed'
 
 // Check deepmind_tracr/tracr/craft/transformers.py
 // Assume we're looking for lines 100-150
@@ -38,7 +38,7 @@ for (const maxSize of [1500, 1800]) {
 	console.log(`\n=== Max chunk size: ${maxSize} ===`)
 
 	const astChunks = await chunk(testFile, code, { maxChunkSize: maxSize })
-	const fixedChunks = chunkFixed(code, maxSize)
+	const fixedChunks = await chunkFixed(testFile, code, maxSize)
 
 	console.log('\nAST chunks:')
 	for (const c of astChunks) {
@@ -57,7 +57,7 @@ for (const maxSize of [1500, 1800]) {
 	for (const c of fixedChunks) {
 		const overlap = overlaps(c.startLine, c.endLine, targetStart, targetEnd)
 		console.log(
-			`  Lines ${c.startLine}-${c.endLine} (${c.nwsCount} NWS) ${overlap ? '*** RELEVANT ***' : ''}`,
+			`  Lines ${c.startLine}-${c.endLine} (${countNws(c.text)} NWS) ${overlap ? '*** RELEVANT ***' : ''}`,
 		)
 	}
 
