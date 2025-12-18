@@ -1,0 +1,15 @@
+Metadata-Version: 2.1
+Name: tracr
+Version: 1.0.0
+Summary: Compiler from RASP to transformer weights
+Home-page: https://github.com/deepmind/tracr
+Author: DeepMind LMI team
+Author-email: tracr-devs@google.com
+License-File: LICENSE
+Requires-Dist: chex
+Requires-Dist: einops
+Requires-Dist: dm-haiku
+Requires-Dist: jax
+Requires-Dist: networkx
+Requires-Dist: numpy
+Requires-Dist: typing_extensions

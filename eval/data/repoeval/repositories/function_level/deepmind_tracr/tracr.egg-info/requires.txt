@@ -1,0 +1,7 @@
+chex
+einops
+dm-haiku
+jax
+networkx
+numpy
+typing_extensions
