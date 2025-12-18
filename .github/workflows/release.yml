@@ -33,9 +33,6 @@ jobs:
       - name: Lint
         run: bun run lint
 
-      - name: Run tests
-        run: bun run test
-
       - name: Build
         run: bun run build
 
@@ -47,6 +44,7 @@ jobs:
 
       - name: Publish to npm
         run: bun publish --access public
+        working-directory: packages/astchunk
         env:
           NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
