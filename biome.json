@@ -28,5 +28,23 @@
 		"enabled": true,
 		"useIgnoreFile": true,
 		"clientKind": "git"
-	}
+	},
+	"overrides": [
+		{
+			"includes": ["test/**/*.ts"],
+			"linter": {
+				"rules": {
+					"style": {
+						"noNonNullAssertion": "off"
+					},
+					"suspicious": {
+						"noNonNullAssertedOptionalChain": "off"
+					},
+					"correctness": {
+						"noUnsafeOptionalChaining": "off"
+					}
+				}
+			}
+		}
+	]
 }

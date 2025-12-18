@@ -6,7 +6,8 @@ import type {
 	SyntaxNode,
 } from '../types'
 import { extractDocstring } from './docstring'
-import { extractImportSource, extractName, extractSignature } from './signature'
+import { extractImportSymbols } from './imports'
+import { extractName, extractSignature } from './signature'
 
 /**
  * Node types that represent extractable entities by language
@@ -162,62 +163,61 @@ function walkAndExtract(
 
 				const entityType = getEntityType(node.type)
 				if (entityType) {
-					// Extract name
-					const name = extractName(node, language) ?? '<anonymous>'
+					// For import statements, extract individual symbols
+					if (entityType === 'import') {
+						const importEntities = extractImportSymbols(node, language, code)
+						entities.push(...importEntities)
+					} else {
+						// Extract name
+						const name = extractName(node, language) ?? '<anonymous>'
 
-					// Extract signature
-					const signature = yield* extractSignature(
-						node,
-						entityType,
-						language,
-						code,
-					)
+						// Extract signature
+						const signature = yield* extractSignature(
+							node,
+							entityType,
+							language,
+							code,
+						)
 
-					// Extract docstring
-					const docstring = yield* extractDocstring(node, language, code)
+						// Extract docstring
+						const docstring = yield* extractDocstring(node, language, code)
 
-					// Extract import source for import entities
-					const source =
-						entityType === 'import'
-							? (extractImportSource(node, language) ?? undefined)
-							: undefined
+						// Create entity
+						const entity: ExtractedEntity = {
+							type: entityType,
+							name,
+							signature: signature || name,
+							docstring,
+							byteRange: {
+								start: node.startIndex,
+								end: node.endIndex,
+							},
+							lineRange: {
+								start: node.startPosition.row,
+								end: node.endPosition.row,
+							},
+							parent: parentName,
+							node,
+						}
 
-					// Create entity
-					const entity: ExtractedEntity = {
-						type: entityType,
-						name,
-						signature: signature || name,
-						docstring,
-						byteRange: {
-							start: node.startIndex,
-							end: node.endIndex,
-						},
-						lineRange: {
-							start: node.startPosition.row,
-							end: node.endPosition.row,
-						},
-						parent: parentName,
-						node,
-						source,
-					}
+						entities.push(entity)
 
-					entities.push(entity)
+						// For nested entities, use this entity's name as parent
+						const newParentName =
+							entityType === 'class' ||
+							entityType === 'interface' ||
+							entityType === 'function' ||
+							entityType === 'method'
+								? name
+								: parentName
 
-					// For nested entities, use this entity's name as parent
-					const newParentName =
-						entityType === 'class' ||
-						entityType === 'interface' ||
-						entityType === 'function' ||
-						entityType === 'method'
-							? name
-							: parentName
-
-					// Add children to stack (in reverse order for correct DFS order)
-					const children = node.namedChildren
-					for (let i = children.length - 1; i >= 0; i--) {
-						const child = children[i]
-						if (child) {
-							stack.push({ node: child, parentName: newParentName })
+						// Add children to stack (in reverse order for correct DFS order)
+						const children = node.namedChildren
+						for (let i = children.length - 1; i >= 0; i--) {
+							const child = children[i]
+							if (child) {
+								stack.push({ node: child, parentName: newParentName })
+							}
 						}
 					}
 				}

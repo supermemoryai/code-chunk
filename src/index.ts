@@ -9,7 +9,13 @@
  */
 
 // Main chunking function
-export { ChunkingError, chunk, UnsupportedLanguageError } from './chunk'
+export {
+	ChunkingError,
+	chunk,
+	chunkStream,
+	chunkStreamEffect,
+	UnsupportedLanguageError,
+} from './chunk'
 
 // Chunker factory
 export { createChunker } from './chunker'
@@ -23,6 +29,7 @@ export type {
 	ByteRange,
 	Chunk,
 	ChunkContext,
+	ChunkEntityInfo,
 	Chunker,
 	ChunkOptions,
 	EntityInfo,

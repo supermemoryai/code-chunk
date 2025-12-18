@@ -11,8 +11,15 @@ import {
 	extractByNodeTypes,
 	getEntityType,
 } from './fallback'
-import { type CompiledQuery, loadQuery, loadQuerySync } from './queries'
-import { extractImportSource, extractName, extractSignature } from './signature'
+import { extractImportSymbols } from './imports'
+import {
+	type CompiledQuery,
+	extractEntityFromMatch,
+	loadQuery,
+	loadQuerySync,
+	type QueryMatch,
+} from './queries'
+import { extractName, extractSignature } from './signature'
 
 /**
  * Error when entity extraction fails
@@ -26,54 +33,8 @@ export class ExtractError {
 }
 
 /**
- * Interface for query match captures (compatible with future queries.ts implementation)
- */
-interface QueryCapture {
-	name: string
-	node: SyntaxNode
-	patternIndex: number
-}
-
-/**
- * Interface for query matches (compatible with future queries.ts implementation)
- */
-interface QueryMatch {
-	patternIndex: number
-	captures: QueryCapture[]
-}
-
-/**
- * Extract the entity node and name node from a query match
- * This will be provided by queries.ts when merged, but we define it here for now
- */
-function extractEntityFromMatch(match: QueryMatch): {
-	itemNode: SyntaxNode
-	nameNode: SyntaxNode | null
-	contextNodes: SyntaxNode[]
-	annotationNodes: SyntaxNode[]
-} | null {
-	const itemCapture = match.captures.find((c) => c.name === 'item')
-	if (!itemCapture) {
-		return null
-	}
-
-	const nameCapture = match.captures.find((c) => c.name === 'name')
-	const contextCaptures = match.captures.filter((c) => c.name === 'context')
-	const annotationCaptures = match.captures.filter(
-		(c) => c.name === 'annotation',
-	)
-
-	return {
-		itemNode: itemCapture.node,
-		nameNode: nameCapture?.node ?? null,
-		contextNodes: contextCaptures.map((c) => c.node),
-		annotationNodes: annotationCaptures.map((c) => c.node),
-	}
-}
-
-/**
- * Execute a query against a tree (compatible interface)
- * This will be provided by queries.ts when merged
+ * Execute a query against a tree
+ * Wraps the web-tree-sitter Query.matches() call with error handling
  */
 function executeQueryOnTree(
 	query: CompiledQuery,
@@ -149,6 +110,13 @@ function matchesToEntities(
 				}
 			}
 
+			// For import statements, extract individual symbols
+			if (entityType === 'import') {
+				const importEntities = extractImportSymbols(itemNode, language, code)
+				entities.push(...importEntities)
+				continue
+			}
+
 			// Extract name - prefer name node from query, fallback to extraction
 			const name = nameNode
 				? nameNode.text
@@ -168,12 +136,6 @@ function matchesToEntities(
 			// Find parent entity
 			const parent = findParentEntityName(itemNode, rootNode, language)
 
-			// Extract import source for import entities
-			const source =
-				entityType === 'import'
-					? (extractImportSource(itemNode, language) ?? undefined)
-					: undefined
-
 			const entity: ExtractedEntity = {
 				type: entityType,
 				name,
@@ -189,7 +151,6 @@ function matchesToEntities(
 				},
 				parent,
 				node: itemNode,
-				source,
 			}
 
 			entities.push(entity)
@@ -364,6 +325,7 @@ export {
 	getEntityType,
 	NODE_TYPE_TO_ENTITY_TYPE,
 } from './fallback'
+export { extractImportSymbols } from './imports'
 export type { CompiledQuery, QueryLoadError } from './queries'
 export { clearQueryCache, loadQuery, loadQuerySync } from './queries'
 export { extractImportSource, extractName, extractSignature } from './signature'

@@ -1,30 +1,13 @@
-import { Effect } from 'effect'
-import type { RebuiltText } from '../chunking/rebuild'
 import { findScopeAtOffset, getAncestorChain } from '../scope/tree'
 import type {
 	ByteRange,
-	Chunk,
 	ChunkContext,
 	ChunkEntityInfo,
-	ChunkOptions,
 	EntityInfo,
 	ExtractedEntity,
 	ImportInfo,
-	Language,
 	ScopeTree,
 } from '../types'
-import { getSiblings, type SiblingOptions } from './siblings'
-
-/**
- * Error when attaching context fails
- */
-export class ContextError {
-	readonly _tag = 'ContextError'
-	constructor(
-		readonly message: string,
-		readonly cause?: unknown,
-	) {}
-}
 
 /**
  * Get scope information for a byte range
@@ -194,102 +177,4 @@ export const getRelevantImports = (
 	})
 
 	return filteredImports.map(mapToImportInfo)
-}
-
-/**
- * Options for attaching context to a chunk
- */
-export interface AttachContextOptions {
-	/** The rebuilt text info for the chunk */
-	text: RebuiltText
-	/** The scope tree for the file */
-	scopeTree: ScopeTree
-	/** Chunking options */
-	options: ChunkOptions
-	/** The chunk index */
-	index: number
-	/** Total number of chunks */
-	totalChunks: number
-	/** File path of the source file (optional) */
-	filepath?: string
-	/** Programming language of the source (optional) */
-	language?: Language
-}
-
-/**
- * Attach context information to a chunk
- *
- * @param opts - Options containing all parameters for context attachment
- * @returns Effect yielding the complete chunk with context
- */
-export const attachContext = (
-	opts: AttachContextOptions,
-): Effect.Effect<Chunk, ContextError> => {
-	const { text, scopeTree, options, index, totalChunks, filepath, language } =
-		opts
-
-	return Effect.try({
-		try: () => {
-			// Determine context mode
-			const contextMode = options.contextMode ?? 'full'
-
-			// For 'none' mode, return minimal context
-			if (contextMode === 'none') {
-				const context: ChunkContext = {
-					filepath,
-					language,
-					scope: [],
-					entities: [],
-					siblings: [],
-					imports: [],
-				}
-				return {
-					text: text.text,
-					byteRange: text.byteRange,
-					lineRange: text.lineRange,
-					context,
-					index,
-					totalChunks,
-				}
-			}
-
-			// Get scope for this chunk's byte range
-			const scope = getScopeForRange(text.byteRange, scopeTree)
-
-			// Get entities within the chunk
-			const entities = getEntitiesInRange(text.byteRange, scopeTree)
-
-			// Get siblings based on options
-			const siblingDetail = options.siblingDetail ?? 'signatures'
-			const siblingOptions: SiblingOptions = {
-				detail: siblingDetail,
-				maxSiblings: contextMode === 'minimal' ? 2 : undefined,
-			}
-			const siblings = getSiblings(text.byteRange, scopeTree, siblingOptions)
-
-			// Get relevant imports
-			const filterImports = options.filterImports ?? false
-			const imports = getRelevantImports(entities, scopeTree, filterImports)
-
-			const context: ChunkContext = {
-				filepath,
-				language,
-				scope,
-				entities,
-				siblings,
-				imports,
-			}
-
-			return {
-				text: text.text,
-				byteRange: text.byteRange,
-				lineRange: text.lineRange,
-				context,
-				index,
-				totalChunks,
-			}
-		},
-		catch: (error: unknown) =>
-			new ContextError('Failed to attach context', error),
-	})
 }
