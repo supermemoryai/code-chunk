@@ -23,6 +23,9 @@ export { createChunker } from './chunker'
 // Re-export language utilities for advanced usage
 export { detectLanguage, LANGUAGE_EXTENSIONS } from './parser/languages'
 
+// Context formatting utility for custom embedding text generation
+export { formatChunkWithContext } from './context/format'
+
 // All public types
 export type {
 	ASTWindow,

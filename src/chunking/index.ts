@@ -4,6 +4,7 @@ import {
 	getRelevantImports,
 	getScopeForRange,
 } from '../context'
+import { formatChunkWithContext } from '../context/format'
 import { getSiblings } from '../context/siblings'
 import type {
 	ASTWindow,
@@ -301,8 +302,12 @@ export const chunk = (
 						? { scope: [], entities: [], siblings: [], imports: [] }
 						: buildContext(text, scopeTree, opts, filepath, language)
 
+				// Build contextualized text for embeddings
+				const contextualizedText = formatChunkWithContext(text.text, context)
+
 				return {
 					text: text.text,
+					contextualizedText,
 					byteRange: text.byteRange,
 					lineRange: text.lineRange,
 					context,
@@ -376,8 +381,12 @@ export async function* streamChunks(
 				? { scope: [], entities: [], siblings: [], imports: [] }
 				: buildContext(text, scopeTree, opts, filepath, language)
 
+		// Build contextualized text for embeddings
+		const contextualizedText = formatChunkWithContext(text.text, context)
+
 		yield {
 			text: text.text,
+			contextualizedText,
 			byteRange: text.byteRange,
 			lineRange: text.lineRange,
 			context,

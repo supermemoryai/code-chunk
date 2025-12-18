@@ -23,8 +23,8 @@ import { embedTexts, topK } from './embeddings'
 import { aggregateMetrics, computeMetrics } from './metrics'
 
 const RESULTS_DIR = join(import.meta.dir, 'results')
-const K = 5 // Top-k for retrieval
-const MAX_CHUNK_SIZE = 1800 // NWS characters per chunk
+const K_VALUES = [5, 10] // Top-k values for retrieval
+const MAX_CHUNK_SIZE = 1500 // NWS characters per chunk
 
 interface ChunkInfo {
 	id: string
@@ -34,6 +34,12 @@ interface ChunkInfo {
 	filepath: string
 }
 
+interface MetricsAtK {
+	precision: number
+	recall: number
+	ndcg: number
+}
+
 interface QueryResult {
 	taskId: string
 	prompt: string
@@ -41,15 +47,15 @@ interface QueryResult {
 	groundTruthFile: string
 	retrievedChunks: Array<{ id: string; score: number; rank: number }>
 	relevantChunkIds: string[]
-	metrics: { precision: number; recall: number; ndcg: number }
+	metrics: Record<number, MetricsAtK> // metrics per k value
 }
 
 interface EvalResult {
 	chunker: 'ast' | 'fixed'
 	repo: string
-	summary: { precision: number; recall: number; ndcg: number }
+	summary: Record<number, MetricsAtK> // summary per k value
 	queryResults: QueryResult[]
-	config: { k: number; maxChunkSize: number }
+	config: { kValues: number[]; maxChunkSize: number }
 	timestamp: string
 }
 
@@ -161,12 +167,14 @@ async function evaluateRepo(
 		)
 	}
 
+	const maxK = Math.max(...K_VALUES)
+
 	for (let i = 0; i < tasks.length; i++) {
 		const task = tasks[i]
 		const queryEmb = queryEmbeddings[i]
 
-		// Get top-k chunks
-		const topKResults = topK(queryEmb, chunkEmbeddings, K)
+		// Get top-k chunks (use max k to get all we need)
+		const topKResults = topK(queryEmb, chunkEmbeddings, maxK)
 
 		// Determine ground truth: chunks that overlap with target location
 		// fpath_tuple is ["repo_name", "path", "to", "file.py"], skip first element
@@ -197,8 +205,11 @@ async function evaluateRepo(
 		// Get retrieved chunk IDs
 		const retrievedIds = topKResults.map((r) => allChunks[r.index].id)
 
-		// Compute metrics
-		const metrics = computeMetrics(retrievedIds, relevantSet, K)
+		// Compute metrics for each k value
+		const metrics: Record<number, MetricsAtK> = {}
+		for (const k of K_VALUES) {
+			metrics[k] = computeMetrics(retrievedIds, relevantSet, k)
+		}
 
 		queryResults.push({
 			taskId: task.metadata.task_id,
@@ -215,27 +226,49 @@ async function evaluateRepo(
 		})
 	}
 
-	// Aggregate metrics
-	const summary = aggregateMetrics(queryResults.map((q) => q.metrics))
+	// Aggregate metrics for each k value
+	const summary: Record<number, MetricsAtK> = {}
+	for (const k of K_VALUES) {
+		summary[k] = aggregateMetrics(queryResults.map((q) => q.metrics[k]))
+	}
 
 	return {
 		chunker: chunkerType,
 		repo,
 		summary,
 		queryResults,
-		config: { k: K, maxChunkSize: MAX_CHUNK_SIZE },
+		config: { kValues: K_VALUES, maxChunkSize: MAX_CHUNK_SIZE },
 		timestamp: new Date().toISOString(),
 	}
 }
 
 /**
- * Format metrics as a table row
+ * Format metrics as a table row for a specific k
  */
-function formatMetrics(
-	label: string,
-	metrics: { precision: number; recall: number; ndcg: number },
-): string {
+function formatMetricsRow(label: string, metrics: MetricsAtK): string {
 	return `${label.padEnd(20)} | ${(metrics.ndcg * 100).toFixed(1).padStart(6)} | ${(metrics.precision * 100).toFixed(1).padStart(6)} | ${(metrics.recall * 100).toFixed(1).padStart(6)}`
+}
+
+/**
+ * Print metrics table for all k values
+ */
+function printMetricsTable(
+	astSummary: Record<number, MetricsAtK>,
+	fixedSummary: Record<number, MetricsAtK>,
+	indent = '',
+): void {
+	for (const k of K_VALUES) {
+		console.log(`${indent}k=${k}:`)
+		console.log(indent + '-'.repeat(50))
+		console.log(
+			`${indent}${'Chunker'.padEnd(20)} | ${'nDCG'.padStart(6)} | ${'P@k'.padStart(6)} | ${'R@k'.padStart(6)}`,
+		)
+		console.log(indent + '-'.repeat(50))
+		console.log(indent + formatMetricsRow('AST', astSummary[k]))
+		console.log(indent + formatMetricsRow('Fixed', fixedSummary[k]))
+		console.log(indent + '-'.repeat(50))
+		console.log('')
+	}
 }
 
 async function main() {
@@ -290,14 +323,7 @@ async function main() {
 
 		// Print comparison
 		console.log(`\n  Results for ${repo}:`)
-		console.log('  ' + '-'.repeat(50))
-		console.log(
-			`  ${'Chunker'.padEnd(20)} | ${'nDCG@5'.padStart(6)} | ${'P@5'.padStart(6)} | ${'R@5'.padStart(6)}`,
-		)
-		console.log('  ' + '-'.repeat(50))
-		console.log('  ' + formatMetrics('AST', astResult.summary))
-		console.log('  ' + formatMetrics('Fixed', fixedResult.summary))
-		console.log('  ' + '-'.repeat(50))
+		printMetricsTable(astResult.summary, fixedResult.summary, '  ')
 	}
 
 	// Step 4: Compute overall summary
@@ -308,36 +334,42 @@ async function main() {
 	const astResults = allResults.filter((r) => r.chunker === 'ast')
 	const fixedResults = allResults.filter((r) => r.chunker === 'fixed')
 
-	const astOverall = aggregateMetrics(astResults.map((r) => r.summary))
-	const fixedOverall = aggregateMetrics(fixedResults.map((r) => r.summary))
+	// Aggregate metrics for each k value
+	const astOverall: Record<number, MetricsAtK> = {}
+	const fixedOverall: Record<number, MetricsAtK> = {}
+	for (const k of K_VALUES) {
+		astOverall[k] = aggregateMetrics(astResults.map((r) => r.summary[k]))
+		fixedOverall[k] = aggregateMetrics(fixedResults.map((r) => r.summary[k]))
+	}
 
-	console.log(
-		`\n${'Chunker'.padEnd(20)} | ${'nDCG@5'.padStart(6)} | ${'P@5'.padStart(6)} | ${'R@5'.padStart(6)}`,
-	)
-	console.log('-'.repeat(50))
-	console.log(formatMetrics('AST', astOverall))
-	console.log(formatMetrics('Fixed', fixedOverall))
-	console.log('-'.repeat(50))
+	console.log('')
+	printMetricsTable(astOverall, fixedOverall)
 
-	// Compute improvements
-	const ndcgImprovement =
-		((astOverall.ndcg - fixedOverall.ndcg) / fixedOverall.ndcg) * 100
-	const precImprovement =
-		((astOverall.precision - fixedOverall.precision) / fixedOverall.precision) *
-		100
-	const recallImprovement =
-		((astOverall.recall - fixedOverall.recall) / fixedOverall.recall) * 100
+	// Compute improvements for each k
+	console.log('Improvement (AST vs Fixed):')
+	for (const k of K_VALUES) {
+		const ndcgImprovement =
+			((astOverall[k].ndcg - fixedOverall[k].ndcg) / fixedOverall[k].ndcg) * 100
+		const precImprovement =
+			((astOverall[k].precision - fixedOverall[k].precision) /
+				fixedOverall[k].precision) *
+			100
+		const recallImprovement =
+			((astOverall[k].recall - fixedOverall[k].recall) /
+				fixedOverall[k].recall) *
+			100
 
-	console.log(`\nImprovement (AST vs Fixed):`)
-	console.log(
-		`  nDCG@5:     ${ndcgImprovement >= 0 ? '+' : ''}${ndcgImprovement.toFixed(1)}%`,
-	)
-	console.log(
-		`  Precision@5: ${precImprovement >= 0 ? '+' : ''}${precImprovement.toFixed(1)}%`,
-	)
-	console.log(
-		`  Recall@5:    ${recallImprovement >= 0 ? '+' : ''}${recallImprovement.toFixed(1)}%`,
-	)
+		console.log(`  k=${k}:`)
+		console.log(
+			`    nDCG:      ${ndcgImprovement >= 0 ? '+' : ''}${ndcgImprovement.toFixed(1)}%`,
+		)
+		console.log(
+			`    Precision: ${precImprovement >= 0 ? '+' : ''}${precImprovement.toFixed(1)}%`,
+		)
+		console.log(
+			`    Recall:    ${recallImprovement >= 0 ? '+' : ''}${recallImprovement.toFixed(1)}%`,
+		)
+	}
 
 	// Step 5: Save results
 	const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
@@ -351,11 +383,6 @@ async function main() {
 				overall: {
 					ast: astOverall,
 					fixed: fixedOverall,
-					improvement: {
-						ndcg: ndcgImprovement,
-						precision: precImprovement,
-						recall: recallImprovement,
-					},
 				},
 				perRepo: Object.fromEntries(
 					repos.map((repo) => [
@@ -366,7 +393,7 @@ async function main() {
 						},
 					]),
 				),
-				config: { k: K, maxChunkSize: MAX_CHUNK_SIZE },
+				config: { kValues: K_VALUES, maxChunkSize: MAX_CHUNK_SIZE },
 				timestamp: new Date().toISOString(),
 			},
 			null,

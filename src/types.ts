@@ -225,6 +225,14 @@ export interface ChunkContext {
 export interface Chunk {
 	/** The actual text content */
 	text: string
+	/**
+	 * Text with semantic context prepended for embedding
+	 *
+	 * Includes file path, scope chain, entity signatures, imports,
+	 * and sibling context to improve embedding quality for semantic search.
+	 * Use this field when creating embeddings for RAG systems.
+	 */
+	contextualizedText: string
 	/** Byte range in original source */
 	byteRange: ByteRange
 	/** Line range in original source */
