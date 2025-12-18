@@ -1,0 +1,33 @@
+- 1.4
+    - NEW: pandas dependency pinned to below 2.0
+    - NEW: `pack` verb
+    - NEW: `unpack` verb
+    - NEW: `group` + `gather` compatibility
+    - NEW: `make loc` (for development)
+    - IMPROVED: README Quickstart + "Verb Table"
+    - IMPROVED: GroupedFrame `__repr__`
+    - IMPROVED: `group` performance optimizations
+    - BUGFIX: `rf.wrap` now properly throws an error on "MultiIndex" columns
+    - BUGFIX: sort order is now retained in `group` operations
+    - BUGFIX: some `TypeError`s have been changed to `ValueError`s
+    - DEPRECATED: `gather(beside=...)` ...whoops! please use `group` + `gather`!
+- 1.3
+    - NEW: `gather(beside=...)` argument!
+    - IMPROVED: `sample` errors are more explicit
+- 1.2
+    - NEW: `cross` join verb!
+    - NEW: `join(..., postfix=("_lhs, "_rhs"))` argument
+    - NEW: `memory` property to check DataFrame memory footprint
+    - NEW: Makefile (for development)
+    - BUGFIX: `combine` drop=True argument now works as intended
+    - BUGFIX: `summarize` deprecation warning now displays properly
+    - BREAKING: `combine` now explicitly requires a `sep` argument
+- 1.1
+    - BUMP: pandas 1.5+
+    - NEW: `__dataframe__` interchange format support
+    - NEW: `rollup` verb (fka `summarize`)
+    - NEW: `__version__`
+    - BUGFIX: `select` verb now requires unique column keys
+    - BUGFIX: `types` property is now more robust to mixed types within a column
+    - DEPRECATED: `summarize` (please use `rollup`!)
+
