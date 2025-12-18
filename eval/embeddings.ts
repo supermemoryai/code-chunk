@@ -110,12 +110,12 @@ async function embedBatch(texts: string[]): Promise<number[][]> {
  * Embed texts with caching
  *
  * @param texts - Array of texts to embed
- * @param onProgress - Optional callback for progress updates
+ * @param onProgress - Optional callback for progress updates (done, total, cachedCount)
  * @returns Array of embeddings (same order as input texts)
  */
 export async function embedTexts(
 	texts: string[],
-	onProgress?: (done: number, total: number) => void,
+	onProgress?: (done: number, total: number, cached: number) => void,
 ): Promise<number[][]> {
 	await mkdir(CACHE_DIR, { recursive: true })
 
@@ -135,8 +135,10 @@ export async function embedTexts(
 	}
 
 	const cachedCount = texts.length - uncachedTexts.length
-	if (cachedCount > 0) {
-		console.log(`  Found ${cachedCount}/${texts.length} embeddings in cache`)
+
+	// Report initial state if all cached
+	if (onProgress && uncachedTexts.length === 0) {
+		onProgress(texts.length, texts.length, cachedCount)
 	}
 
 	// Embed uncached texts in batches
@@ -155,8 +157,9 @@ export async function embedTexts(
 
 		if (onProgress) {
 			onProgress(
-				Math.min(i + BATCH_SIZE, uncachedTexts.length),
-				uncachedTexts.length,
+				cachedCount + Math.min(i + BATCH_SIZE, uncachedTexts.length),
+				texts.length,
+				cachedCount,
 			)
 		}
 	}
