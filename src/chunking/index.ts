@@ -44,6 +44,7 @@ export const DEFAULT_CHUNK_OPTIONS: Required<ChunkOptions> = {
 	siblingDetail: 'signatures',
 	filterImports: false,
 	language: 'typescript',
+	overlapLines: 10,
 }
 
 /**
@@ -292,18 +293,39 @@ export const chunk = (
 			const windowArray = Array.from(mergedWindows)
 			const totalChunks = windowArray.length
 
-			const chunks: Chunk[] = windowArray.map((window, index) => {
-				// Rebuild text from window
-				const text = rebuildText(window, code)
+			// First pass: rebuild text for all windows (needed for overlap)
+			const rebuiltTexts = windowArray.map((window) =>
+				rebuildText(window, code),
+			)
 
+			// Second pass: build chunks with overlap
+			const chunks: Chunk[] = rebuiltTexts.map((text, index) => {
 				// Build context
 				const context =
 					opts.contextMode === 'none'
 						? { scope: [], entities: [], siblings: [], imports: [] }
 						: buildContext(text, scopeTree, opts, filepath, language)
 
-				// Build contextualized text for embeddings
-				const contextualizedText = formatChunkWithContext(text.text, context)
+				// Compute overlap text from previous chunk if applicable
+				let overlapText: string | undefined
+				if (opts.overlapLines > 0 && index > 0) {
+					const prevText = rebuiltTexts[index - 1]?.text
+					if (prevText) {
+						const prevLines = prevText.split('\n')
+						const overlapLineCount = Math.min(
+							opts.overlapLines,
+							prevLines.length,
+						)
+						overlapText = prevLines.slice(-overlapLineCount).join('\n')
+					}
+				}
+
+				// Build contextualized text for embeddings (includes overlap)
+				const contextualizedText = formatChunkWithContext(
+					text.text,
+					context,
+					overlapText,
+				)
 
 				return {
 					text: text.text,
@@ -371,6 +393,7 @@ export async function* streamChunks(
 	// Stream chunks as they are generated
 	// totalChunks is -1 since we don't know the total count while streaming
 	let index = 0
+	let prevText: string | undefined
 	for (const window of mergedWindows) {
 		// Rebuild text from window
 		const text = rebuildText(window, code)
@@ -381,8 +404,20 @@ export async function* streamChunks(
 				? { scope: [], entities: [], siblings: [], imports: [] }
 				: buildContext(text, scopeTree, opts, filepath, language)
 
-		// Build contextualized text for embeddings
-		const contextualizedText = formatChunkWithContext(text.text, context)
+		// Compute overlap text from previous chunk if applicable
+		let overlapText: string | undefined
+		if (opts.overlapLines > 0 && prevText) {
+			const prevLines = prevText.split('\n')
+			const overlapLineCount = Math.min(opts.overlapLines, prevLines.length)
+			overlapText = prevLines.slice(-overlapLineCount).join('\n')
+		}
+
+		// Build contextualized text for embeddings (includes overlap)
+		const contextualizedText = formatChunkWithContext(
+			text.text,
+			context,
+			overlapText,
+		)
 
 		yield {
 			text: text.text,
@@ -393,6 +428,8 @@ export async function* streamChunks(
 			index,
 			totalChunks: -1, // Unknown during streaming
 		}
+
+		prevText = text.text
 		index++
 	}
 }

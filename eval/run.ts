@@ -10,6 +10,8 @@
 import { readdirSync, statSync } from 'node:fs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { chunkFile as chunkWithAST } from './chunkers/ast'
+import { chunkFile as chunkWithFixed } from './chunkers/fixed'
 import {
 	download,
 	getRepos,
@@ -17,8 +19,6 @@ import {
 	loadTasks,
 	type RepoEvalTask,
 } from './download'
-import { chunkFile as chunkWithAST } from './chunkers/ast'
-import { chunkFile as chunkWithFixed } from './chunkers/fixed'
 import { embedTexts, topK } from './embeddings'
 import { aggregateMetrics, computeMetrics } from './metrics'
 
@@ -112,7 +112,7 @@ async function evaluateRepo(
 
 	for (const filepath of pyFiles) {
 		const code = await readFile(filepath, 'utf-8')
-		const relPath = filepath.replace(repoDir + '/', '')
+		const relPath = filepath.replace(`${repoDir}/`, '')
 
 		try {
 			const chunks =
@@ -213,7 +213,7 @@ async function evaluateRepo(
 
 		queryResults.push({
 			taskId: task.metadata.task_id,
-			prompt: task.prompt.slice(0, 200) + '...', // Truncate for readability
+			prompt: `${task.prompt.slice(0, 200)}...`, // Truncate for readability
 			groundTruthLines: targetLines,
 			groundTruthFile: targetFile,
 			retrievedChunks: topKResults.map((r, rank) => ({
@@ -327,7 +327,7 @@ async function main() {
 	}
 
 	// Step 4: Compute overall summary
-	console.log('\n' + '='.repeat(60))
+	console.log(`\n${'='.repeat(60)}`)
 	console.log('OVERALL SUMMARY')
 	console.log('='.repeat(60))
 

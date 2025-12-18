@@ -259,6 +259,14 @@ export interface ChunkOptions {
 	filterImports?: boolean
 	/** Override language detection */
 	language?: Language
+	/**
+	 * Number of lines to overlap from the previous chunk (default: 0)
+	 *
+	 * When set, each chunk's contextualizedText will include the last N lines
+	 * from the previous chunk, improving recall for queries that target
+	 * code at chunk boundaries. The raw `text` field is not affected.
+	 */
+	overlapLines?: number
 }
 
 /**
