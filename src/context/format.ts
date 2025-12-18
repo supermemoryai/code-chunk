@@ -16,17 +16,20 @@ import type { ChunkContext } from '../types'
  * - Entity signatures defined in this chunk
  * - Import dependencies
  * - Sibling context for continuity
+ * - Optional overlap from previous chunk
  *
  * This format is optimized for embedding models to capture
  * semantic relationships between code chunks.
  *
  * @param text - The raw chunk text
  * @param context - The chunk's semantic context
+ * @param overlapText - Optional text from previous chunk to include for continuity
  * @returns Formatted text with context prepended
  */
 export function formatChunkWithContext(
 	text: string,
 	context: ChunkContext,
+	overlapText?: string,
 ): string {
 	const parts: string[] = []
 
@@ -77,10 +80,19 @@ export function formatChunkWithContext(
 		parts.push(`# Before: ${afterSiblings.join(', ')}`)
 	}
 
-	// Add separator and actual code
+	// Add separator before code
 	if (parts.length > 0) {
 		parts.push('')
 	}
+
+	// Add overlap from previous chunk if provided
+	if (overlapText) {
+		parts.push('# ...')
+		parts.push(overlapText)
+		parts.push('# ---')
+	}
+
+	// Add actual chunk code
 	parts.push(text)
 
 	return parts.join('\n')
