@@ -19,6 +19,7 @@
 		"dev": "bunup --watch",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
+		"format": "biome format --write .",
 		"release": "bumpp --commit --push --tag",
 		"test": "bun test",
 		"test:coverage": "bun test --coverage",

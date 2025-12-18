@@ -225,6 +225,14 @@ export interface ChunkContext {
 export interface Chunk {
 	/** The actual text content */
 	text: string
+	/**
+	 * Text with semantic context prepended for embedding
+	 *
+	 * Includes file path, scope chain, entity signatures, imports,
+	 * and sibling context to improve embedding quality for semantic search.
+	 * Use this field when creating embeddings for RAG systems.
+	 */
+	contextualizedText: string
 	/** Byte range in original source */
 	byteRange: ByteRange
 	/** Line range in original source */
@@ -251,6 +259,14 @@ export interface ChunkOptions {
 	filterImports?: boolean
 	/** Override language detection */
 	language?: Language
+	/**
+	 * Number of lines to overlap from the previous chunk (default: 0)
+	 *
+	 * When set, each chunk's contextualizedText will include the last N lines
+	 * from the previous chunk, improving recall for queries that target
+	 * code at chunk boundaries. The raw `text` field is not affected.
+	 */
+	overlapLines?: number
 }
 
 /**
