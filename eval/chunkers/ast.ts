@@ -2,6 +2,7 @@
  * AST-aware chunker wrapper for evaluation
  *
  * Wraps the astchunk library for use in the evaluation harness.
+ * Uses the built-in contextualizedText for better embedding quality.
  */
 
 import { chunk } from '../../src'
@@ -9,6 +10,10 @@ import { chunk } from '../../src'
 /**
  * Chunk a file using AST-aware chunking and return results
  * in a format compatible with the evaluation
+ *
+ * @param filepath - Path to the file
+ * @param code - Source code content
+ * @param maxNws - Maximum NWS characters per chunk (default: 1500)
  */
 export async function chunkFile(
 	filepath: string,
@@ -28,7 +33,7 @@ export async function chunkFile(
 
 	return chunks.map((c) => ({
 		id: `${filepath}:${c.lineRange.start}-${c.lineRange.end}`,
-		text: c.text,
+		text: c.contextualizedText,
 		startLine: c.lineRange.start,
 		endLine: c.lineRange.end,
 	}))

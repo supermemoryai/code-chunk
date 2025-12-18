@@ -6,8 +6,8 @@
  * 2. Function-level Python repositories for chunking
  */
 
-import { mkdir, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
+import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 const DATA_DIR = join(import.meta.dir, 'data', 'repoeval')

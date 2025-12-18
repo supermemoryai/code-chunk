@@ -2,10 +2,10 @@
  * OpenAI embeddings wrapper with disk caching
  */
 
+import { createHash } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { createHash } from 'node:crypto'
 import OpenAI from 'openai'
 
 const CACHE_DIR = join(import.meta.dir, 'cache', 'embeddings')
