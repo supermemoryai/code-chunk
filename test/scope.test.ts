@@ -146,12 +146,14 @@ describe('buildScopeTreeFromEntities', () => {
 		expect(classNode?.children[1]?.entity.name).toBe('subtract')
 
 		// Verify method byte ranges are contained within class range
-		const classRange = classNode!.entity.byteRange
-		for (const child of classNode!.children) {
-			expect(child.entity.byteRange.start).toBeGreaterThanOrEqual(
-				classRange.start,
-			)
-			expect(child.entity.byteRange.end).toBeLessThanOrEqual(classRange.end)
+		if (classNode) {
+			const classRange = classNode.entity.byteRange
+			for (const child of classNode.children) {
+				expect(child.entity.byteRange.start).toBeGreaterThanOrEqual(
+					classRange.start,
+				)
+				expect(child.entity.byteRange.end).toBeLessThanOrEqual(classRange.end)
+			}
 		}
 	})
 
@@ -204,12 +206,16 @@ describe('buildScopeTreeFromEntities', () => {
 		expect(classNode?.children).toHaveLength(3)
 
 		// Verify ordering by byte position
-		for (let i = 1; i < classNode!.children.length; i++) {
-			const prevChild = classNode!.children[i - 1]!
-			const currChild = classNode!.children[i]!
-			expect(currChild.entity.byteRange.start).toBeGreaterThan(
-				prevChild.entity.byteRange.start,
-			)
+		if (classNode) {
+			for (let i = 1; i < classNode.children.length; i++) {
+				const prevChild = classNode.children[i - 1]
+				const currChild = classNode.children[i]
+				if (prevChild && currChild) {
+					expect(currChild.entity.byteRange.start).toBeGreaterThan(
+						prevChild.entity.byteRange.start,
+					)
+				}
+			}
 		}
 
 		// Verify exact order
@@ -412,7 +418,7 @@ describe('findScopeAtOffset', () => {
 		)
 		expect(addMethod).toBeDefined()
 		const midpoint = Math.floor(
-			(addMethod!.byteRange.start + addMethod!.byteRange.end) / 2,
+			(addMethod?.byteRange.start + addMethod?.byteRange.end) / 2,
 		)
 		const scope = findScopeAtOffset(tree, midpoint)
 
@@ -433,7 +439,7 @@ describe('findScopeAtOffset', () => {
 		// Find method's byte range
 		const method = entities.find((e) => e.name === 'method')
 		expect(method).toBeDefined()
-		const offset = method!.byteRange.start + 5 // Inside method
+		const offset = method?.byteRange.start + 5 // Inside method
 		const scope = findScopeAtOffset(tree, offset)
 
 		// Should find the method, not the class
@@ -458,8 +464,8 @@ describe('findScopeAtOffset', () => {
 		expect(methodEntity).toBeDefined()
 
 		// Offset at start of class but before method
-		const offsetInClass = classEntity!.byteRange.start + 1
-		if (offsetInClass < methodEntity!.byteRange.start) {
+		const offsetInClass = classEntity?.byteRange.start + 1
+		if (offsetInClass < methodEntity?.byteRange.start) {
 			const scope = findScopeAtOffset(tree, offsetInClass)
 			expect(scope?.entity.name).toBe('Outer')
 		}
@@ -508,11 +514,11 @@ function second() { return 2 }`
 		expect(second).toBeDefined()
 
 		// At exact start of first function
-		const scopeAtStart = findScopeAtOffset(tree, first!.byteRange.start)
+		const scopeAtStart = findScopeAtOffset(tree, first?.byteRange.start)
 		expect(scopeAtStart?.entity.name).toBe('first')
 
 		// At exact start of second function
-		const scopeAtSecondStart = findScopeAtOffset(tree, second!.byteRange.start)
+		const scopeAtSecondStart = findScopeAtOffset(tree, second?.byteRange.start)
 		expect(scopeAtSecondStart?.entity.name).toBe('second')
 	})
 })
@@ -653,7 +659,7 @@ describe('parent/child relationships', () => {
 		expect(parentNode).toBeDefined()
 		expect(parentNode?.children).toHaveLength(1)
 
-		const childNode = parentNode!.children[0]
+		const childNode = parentNode?.children[0]
 		expect(childNode?.parent).toBe(parentNode)
 		expect(childNode?.parent?.entity.name).toBe('Parent')
 	})
@@ -735,8 +741,8 @@ describe('multi-language scope trees', () => {
 		expect(cls?.children[1]?.entity.name).toBe('subtract')
 
 		// Verify byte range containment
-		const classRange = cls!.entity.byteRange
-		for (const child of cls!.children) {
+		const classRange = cls?.entity.byteRange
+		for (const child of cls?.children) {
 			expect(child.entity.byteRange.start).toBeGreaterThan(classRange.start)
 			expect(child.entity.byteRange.end).toBeLessThanOrEqual(classRange.end)
 		}
@@ -852,7 +858,7 @@ function baz() { return 3 }`
 		const barEntity = entities.find((e) => e.name === 'bar')
 		expect(barEntity).toBeDefined()
 
-		const entitiesInRange = getEntitiesInRange(barEntity!.byteRange, tree)
+		const entitiesInRange = getEntitiesInRange(barEntity?.byteRange, tree)
 
 		// Should find bar
 		const bar = entitiesInRange.find((e) => e.name === 'bar')
@@ -880,7 +886,7 @@ function baz() { return 3 }`
 		const method2 = entities.find((e) => e.name === 'method2')
 		expect(method2).toBeDefined()
 
-		const entitiesInRange = getEntitiesInRange(method2!.byteRange, tree)
+		const entitiesInRange = getEntitiesInRange(method2?.byteRange, tree)
 
 		// method2 should not be partial (its full range is included)
 		const m2 = entitiesInRange.find((e) => e.name === 'method2')
@@ -914,8 +920,8 @@ function baz() { return 3 }`
 
 		// Range that cuts through the function (starts at function start, ends before function end)
 		const partialRange = {
-			start: fn!.byteRange.start,
-			end: fn!.byteRange.start + 20,
+			start: fn?.byteRange.start,
+			end: fn?.byteRange.start + 20,
 		}
 		const entitiesInRange = getEntitiesInRange(partialRange, tree)
 
@@ -939,7 +945,7 @@ function documented() {
 		const fn = entities.find((e) => e.name === 'documented')
 		expect(fn).toBeDefined()
 
-		const entitiesInRange = getEntitiesInRange(fn!.byteRange, tree)
+		const entitiesInRange = getEntitiesInRange(fn?.byteRange, tree)
 		const docFn = entitiesInRange.find((e) => e.name === 'documented')
 
 		expect(docFn).toBeDefined()
