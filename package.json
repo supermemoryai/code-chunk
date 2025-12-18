@@ -30,7 +30,6 @@
 		"@types/bun": "^1.3.4",
 		"bumpp": "^10.3.2",
 		"bunup": "^0.16.10",
-		"openai": "^6.14.0",
 		"typescript": "^5.9.3"
 	},
 	"peerDependencies": {
