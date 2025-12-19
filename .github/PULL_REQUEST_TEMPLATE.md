@@ -1,45 +1,11 @@
-## Description
+## What
 
-<!-- Briefly describe what this PR does -->
+<!-- What does this PR do? One sentence. -->
 
-## Type of Change
+## Why
 
-<!-- Check the relevant option -->
+<!-- Why is this needed? Link issue if exists: Fixes #123 -->
 
-- [ ] 🐛 Bug fix
-- [ ] ✨ New feature
-- [ ] 💥 Breaking change
-- [ ] 📝 Documentation
-- [ ] ♻️ Refactoring
-- [ ] ⚡ Performance
-- [ ] ✅ Tests
-- [ ] 🔧 Build/CI
+## Notes
 
-## Related Issues
-
-<!-- Link related issues: Fixes #123, Closes #456 -->
-
-## Changes
-
-<!-- List key changes -->
-
--
--
-
-## Testing
-
-<!-- How did you test this? -->
-
-- [ ] Tests added/updated
-- [ ] All tests passing
-
-## Checklist
-
-- [ ] Code follows project style
-- [ ] Self-reviewed
-- [ ] Documentation updated (if needed)
-- [ ] No breaking changes (or documented)
-
-## Screenshots/Notes
-
-<!-- Optional: Add screenshots or additional context -->
+<!-- Anything reviewers should know? Delete if n/a -->
