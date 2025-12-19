@@ -9,7 +9,7 @@
 		"type-check": "tsc --noEmit"
 	},
 	"dependencies": {
-		"@supermemory/astchunk": "workspace:*",
+		"code-chunk": "workspace:*",
 		"openai": "^4.0.0"
 	},
 	"devDependencies": {

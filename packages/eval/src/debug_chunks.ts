@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { chunk } from '@supermemory/astchunk'
+import { chunk } from 'code-chunk'
 import { chunkFile as chunkFixed } from './chunkers/fixed'
 
 // Check deepmind_tracr/tracr/craft/transformers.py

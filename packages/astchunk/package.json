@@ -39,6 +39,7 @@
 	"type": "module",
 	"exports": {
 		".": {
+			"types": "./src/index.ts",
 			"bun": "./src/index.ts",
 			"import": {
 				"types": "./dist/index.d.ts",
