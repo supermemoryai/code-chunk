@@ -38,12 +38,11 @@ export class ChunkError extends Error {
 /**
  * Default chunk options
  */
-export const DEFAULT_CHUNK_OPTIONS: Required<ChunkOptions> = {
+export const DEFAULT_CHUNK_OPTIONS: Omit<Required<ChunkOptions>, 'language'> = {
 	maxChunkSize: 1500,
 	contextMode: 'full',
 	siblingDetail: 'signatures',
 	filterImports: false,
-	language: 'typescript',
 	overlapLines: 10,
 }
 
