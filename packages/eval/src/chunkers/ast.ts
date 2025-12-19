@@ -5,7 +5,7 @@
  * Uses the built-in contextualizedText for better embedding quality.
  */
 
-import { chunk } from '@supermemory/astchunk'
+import { chunk } from 'code-chunk'
 
 /**
  * Chunk a file using AST-aware chunking and return results

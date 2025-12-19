@@ -5,14 +5,14 @@
 		"packages/*"
 	],
 	"scripts": {
-		"build": "bun run --filter '@supermemory/astchunk' build",
-		"dev": "bun run --filter '@supermemory/astchunk' dev",
+		"build": "bun run --filter 'code-chunk' build",
+		"dev": "bun run --filter 'code-chunk' dev",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
 		"format": "biome format --write .",
-		"test": "bun run --filter '@supermemory/astchunk' test",
-		"test:coverage": "bun run --filter '@supermemory/astchunk' test:coverage",
-		"test:watch": "bun run --filter '@supermemory/astchunk' test:watch",
+		"test": "bun run --filter 'code-chunk' test",
+		"test:coverage": "bun run --filter 'code-chunk' test:coverage",
+		"test:watch": "bun run --filter 'code-chunk' test:watch",
 		"type-check": "bun run --filter '*' type-check",
 		"eval": "bun run --filter '@supermemory/eval' start"
 	},
