@@ -1,5 +1,5 @@
 /**
- * astchunk - AST-aware code chunking for LLMs
+ * code-chunk - AST-aware code chunking for LLMs
  *
  * This library provides intelligent code chunking that preserves semantic
  * context by leveraging tree-sitter for AST parsing. Each chunk includes

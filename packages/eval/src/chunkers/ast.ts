@@ -1,7 +1,7 @@
 /**
  * AST-aware chunker wrapper for evaluation
  *
- * Wraps the astchunk library for use in the evaluation harness.
+ * Wraps the code-chunk library for use in the evaluation harness.
  * Uses the built-in contextualizedText for better embedding quality.
  */
 

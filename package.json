@@ -1,5 +1,5 @@
 {
-	"name": "astchunk-monorepo",
+	"name": "code-chunk-monorepo",
 	"private": true,
 	"workspaces": [
 		"packages/*"

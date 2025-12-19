@@ -2,7 +2,7 @@
 	"name": "@supermemory/eval",
 	"version": "0.1.0",
 	"private": true,
-	"description": "Evaluation harness for astchunk",
+	"description": "Evaluation harness for code-chunk",
 	"type": "module",
 	"scripts": {
 		"start": "bun run src/run.ts",

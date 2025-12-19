@@ -62,7 +62,7 @@ class ChunkerImpl implements Chunker {
  *
  * @example
  * ```ts
- * import { createChunker } from 'astchunk'
+ * import { createChunker } from 'code-chunk'
  *
  * const chunker = createChunker({ maxChunkSize: 2048 })
  *

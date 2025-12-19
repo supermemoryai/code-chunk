@@ -2,9 +2,9 @@
 	"name": "code-chunk",
 	"version": "0.1.0",
 	"description": "AST-aware code chunking for semantic search and RAG",
-	"homepage": "https://github.com/supermemoryai/astchunk#readme",
+	"homepage": "https://github.com/supermemoryai/code-chunk#readme",
 	"bugs": {
-		"url": "https://github.com/supermemoryai/astchunk/issues"
+		"url": "https://github.com/supermemoryai/code-chunk/issues"
 	},
 	"license": "MIT",
 	"files": [
@@ -12,7 +12,7 @@
 	],
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/supermemoryai/astchunk.git"
+		"url": "git+https://github.com/supermemoryai/code-chunk.git"
 	},
 	"scripts": {
 		"build": "bunup",

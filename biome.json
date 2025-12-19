@@ -31,7 +31,7 @@
 	},
 	"overrides": [
 		{
-			"includes": ["**/test/**/*.ts", "packages/astchunk/test/**/*.ts"],
+			"includes": ["**/test/**/*.ts", "packages/code-chunk/test/**/*.ts"],
 			"linter": {
 				"rules": {
 					"style": {

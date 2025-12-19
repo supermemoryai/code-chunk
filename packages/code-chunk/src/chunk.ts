@@ -115,7 +115,7 @@ const chunkEffect = (
 /**
  * Chunk source code into pieces with semantic context
  *
- * This is the main entry point for the astchunk library. It takes source code
+ * This is the main entry point for the code-chunk library. It takes source code
  * and returns an array of chunks, each with contextual information about the
  * code's structure.
  *
@@ -128,7 +128,7 @@ const chunkEffect = (
  *
  * @example
  * ```ts
- * import { chunk } from 'astchunk'
+ * import { chunk } from 'code-chunk'
  *
  * const chunks = await chunk('src/utils.ts', sourceCode)
  * for (const chunk of chunks) {
@@ -203,7 +203,7 @@ const prepareChunking = (
  *
  * @example
  * ```ts
- * import { chunkStreamEffect } from 'astchunk'
+ * import { chunkStreamEffect } from 'code-chunk'
  * import { Effect, Stream } from 'effect'
  *
  * const program = Stream.runForEach(
@@ -268,7 +268,7 @@ export const chunkStreamEffect = (
  *
  * @example
  * ```ts
- * import { chunkStream } from 'astchunk'
+ * import { chunkStream } from 'code-chunk'
  *
  * for await (const chunk of chunkStream('src/utils.ts', sourceCode)) {
  *   console.log(chunk.text, chunk.context)
