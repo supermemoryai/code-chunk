@@ -1,7 +1,7 @@
 {
 	"files": [],
 	"references": [
-		{ "path": "./packages/astchunk" },
+		{ "path": "./packages/code-chunk" },
 		{ "path": "./packages/eval" }
 	]
 }
