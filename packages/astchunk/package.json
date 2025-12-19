@@ -1,5 +1,5 @@
 {
-	"name": "@supermemory/astchunk",
+	"name": "code-chunk",
 	"version": "0.1.0",
 	"description": "AST-aware code chunking for semantic search and RAG",
 	"homepage": "https://github.com/supermemoryai/astchunk#readme",
