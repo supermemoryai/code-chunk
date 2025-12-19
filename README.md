@@ -15,12 +15,12 @@ Uses tree-sitter to split source code at semantic boundaries (functions, classes
 
 ## Features
 
-- **AST-aware** — Splits at semantic boundaries, never mid-function
-- **Rich context** — Scope chain, imports, siblings, entity signatures
-- **Contextualized text** — Pre-formatted for embedding models
-- **Multi-language** — TypeScript, JavaScript, Python, Rust, Go, Java
-- **Streaming** — Process large files incrementally
-- **Effect support** — First-class Effect integration
+- **AST-aware**: Splits at semantic boundaries, never mid-function
+- **Rich context**: Scope chain, imports, siblings, entity signatures
+- **Contextualized text**: Pre-formatted for embedding models
+- **Multi-language**: TypeScript, JavaScript, Python, Rust, Go, Java
+- **Streaming**: Process large files incrementally
+- **Effect support**: First-class Effect integration
 
 ## How It Works
 
@@ -53,10 +53,10 @@ Code is split at semantic boundaries while respecting the `maxChunkSize` limit. 
 ### 5. Enrich with Context
 
 Each chunk is enriched with contextual metadata:
-- **Scope chain** — Where this code lives (e.g., inside which class/function)
-- **Entities** — What's defined in this chunk
-- **Siblings** — What comes before/after (for continuity)
-- **Imports** — What dependencies are used
+- **Scope chain**: Where this code lives (e.g., inside which class/function)
+- **Entities**: What's defined in this chunk
+- **Siblings**: What comes before/after (for continuity)
+- **Imports**: What dependencies are used
 
 This context is formatted into `contextualizedText`, optimized for embedding models to understand semantic relationships.
 
@@ -166,9 +166,9 @@ await Effect.runPromise(program)
 Chunk source code into semantic pieces with context.
 
 **Parameters:**
-- `filepath` — File path (used for language detection)
-- `code` — Source code string
-- `options` — Optional configuration
+- `filepath`: File path (used for language detection)
+- `code`: Source code string
+- `options`: Optional configuration
 
 **Returns:** `Promise<Chunk[]>`
 
@@ -246,9 +246,9 @@ Detect programming language from file extension.
 
 ### Errors
 
-**`ChunkingError`** — Thrown when chunking fails (parsing error, extraction error, etc.)
+**`ChunkingError`**: Thrown when chunking fails (parsing error, extraction error, etc.)
 
-**`UnsupportedLanguageError`** — Thrown when the file extension is not supported
+**`UnsupportedLanguageError`**: Thrown when the file extension is not supported
 
 Both errors have a `_tag` property for Effect-style error handling.
 
