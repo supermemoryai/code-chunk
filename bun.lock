@@ -10,7 +10,7 @@
       },
     },
     "packages/astchunk": {
-      "name": "@supermemory/astchunk",
+      "name": "code-chunk",
       "version": "0.1.0",
       "dependencies": {
         "effect": "^3.19.12",
@@ -38,7 +38,7 @@
       "name": "@supermemory/eval",
       "version": "0.1.0",
       "dependencies": {
-        "@supermemory/astchunk": "workspace:*",
+        "code-chunk": "workspace:*",
         "openai": "^4.0.0",
       },
       "devDependencies": {
@@ -187,8 +187,6 @@
 
     "@standard-schema/spec": ["@standard-schema/spec@1.1.0", "", {}, "sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w=="],
 
-    "@supermemory/astchunk": ["@supermemory/astchunk@workspace:packages/astchunk"],
-
     "@supermemory/eval": ["@supermemory/eval@workspace:packages/eval"],
 
     "@tybys/wasm-util": ["@tybys/wasm-util@0.10.1", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-9tTaPJLSiejZKx+Bmog4uSubteqTvFrVrURwkmHixBo0G4seD0zUxp98E1DzUBJxLQ3NPwXrGKDiVjwx/DpPsg=="],
@@ -224,6 +222,8 @@
     "chokidar": ["chokidar@4.0.3", "", { "dependencies": { "readdirp": "^4.0.1" } }, "sha512-Qgzu8kfBvo+cA4962jnP1KkS6Dop5NS6g7R5LFYJr4b8Ub94PPQXUksCw9PvXoeXPRRddRNC5C1JQUR2SMGtnA=="],
 
     "citty": ["citty@0.1.6", "", { "dependencies": { "consola": "^3.2.3" } }, "sha512-tskPPKEs8D2KPafUypv2gxwJP8h/OaJmC82QQGGDQcHvXX43xF2VDACcJVmZ0EuSxkpO9Kc4MlrA3q0+FG58AQ=="],
+
+    "code-chunk": ["code-chunk@workspace:packages/astchunk"],
 
     "coffi": ["coffi@0.1.37", "", { "dependencies": { "strip-json-comments": "^5.0.3" } }, "sha512-ewO5Xis7sw7g54yI/3lJ/nNV90Er4ZnENeDORZjrs58T70MmwKFLZgevraNCz+RmB4KDKsYT1ui1wDB36iPWqQ=="],
 
