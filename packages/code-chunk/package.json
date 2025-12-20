@@ -1,6 +1,6 @@
 {
 	"name": "code-chunk",
-	"version": "0.1.11",
+	"version": "0.1.12",
 	"description": "AST-aware code chunking for semantic search and RAG",
 	"homepage": "https://github.com/supermemoryai/code-chunk#readme",
 	"bugs": {
