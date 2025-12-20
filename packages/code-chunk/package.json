@@ -15,7 +15,7 @@
 		"url": "git+https://github.com/supermemoryai/code-chunk.git"
 	},
 	"scripts": {
-		"build": "bunup",
+		"build": "bunup src/index.ts src/wasm.ts",
 		"dev": "bunup --watch",
 		"release": "bumpp --commit --push --tag",
 		"test": "bun test",
@@ -44,6 +44,14 @@
 			"import": {
 				"types": "./dist/index.d.ts",
 				"default": "./dist/index.js"
+			}
+		},
+		"./wasm": {
+			"types": "./src/wasm.ts",
+			"bun": "./src/wasm.ts",
+			"import": {
+				"types": "./dist/wasm.d.ts",
+				"default": "./dist/wasm.js"
 			}
 		},
 		"./package.json": "./package.json"

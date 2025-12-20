@@ -299,3 +299,48 @@ export interface Chunker {
 		options?: ChunkOptions,
 	): AsyncIterable<Chunk>
 }
+
+// ============================================================================
+// WASM / Cloudflare Workers Types
+// ============================================================================
+
+/**
+ * WASM binary input - can be ArrayBuffer, Uint8Array, Response, or URL string
+ *
+ * In Cloudflare Workers, WASM files are typically imported as modules that
+ * resolve to ArrayBuffer or WebAssembly.Module.
+ */
+export type WasmBinary =
+	| ArrayBuffer
+	| Uint8Array
+	| Response
+	| WebAssembly.Module
+	| string
+
+/**
+ * Configuration for WASM binaries in Cloudflare Workers
+ *
+ * @example
+ * ```ts
+ * import treeSitterWasm from 'web-tree-sitter/tree-sitter.wasm'
+ * import typescriptWasm from 'tree-sitter-typescript/tree-sitter-tsx.wasm'
+ *
+ * const config: WasmConfig = {
+ *   treeSitter: treeSitterWasm,
+ *   languages: {
+ *     typescript: typescriptWasm,
+ *   }
+ * }
+ * ```
+ */
+export interface WasmConfig {
+	/**
+	 * The core tree-sitter.wasm binary from web-tree-sitter
+	 */
+	treeSitter: WasmBinary
+	/**
+	 * Language grammar WASM binaries
+	 * Only include the languages you need to minimize bundle size
+	 */
+	languages: Partial<Record<Language, WasmBinary>>
+}
