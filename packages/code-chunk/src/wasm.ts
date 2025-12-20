@@ -1,4 +1,5 @@
 import { Effect } from 'effect'
+import { batch, batchStream, type ChunkFileFunction } from './batch'
 import {
 	chunk as chunkInternal,
 	DEFAULT_CHUNK_OPTIONS,
@@ -181,93 +182,31 @@ class WasmChunker implements Chunker {
 		}
 	}
 
+	private createChunkFileFunction(): ChunkFileFunction {
+		return (filepath, code, options) =>
+			Effect.tryPromise(() =>
+				this.chunk(filepath, code, { ...this.defaultOptions, ...options }),
+			)
+	}
+
 	async chunkBatch(
 		files: FileInput[],
 		options?: BatchOptions,
 	): Promise<BatchResult[]> {
-		const { concurrency = 10, onProgress, ...chunkOptions } = options ?? {}
-		const mergedOptions = { ...this.defaultOptions, ...chunkOptions }
-		const total = files.length
-
-		const processFile = async (file: FileInput): Promise<BatchResult> => {
-			try {
-				const fileOptions = { ...mergedOptions, ...file.options }
-				const chunks = await this.chunk(file.filepath, file.code, fileOptions)
-				return { filepath: file.filepath, chunks, error: null }
-			} catch (error) {
-				return {
-					filepath: file.filepath,
-					chunks: null,
-					error: error instanceof Error ? error : new Error(String(error)),
-				}
-			}
-		}
-
-		const results: BatchResult[] = []
-		let completed = 0
-
-		for (let i = 0; i < files.length; i += concurrency) {
-			const batch = files.slice(i, i + concurrency)
-			const batchResults = await Promise.all(batch.map(processFile))
-
-			for (let j = 0; j < batchResults.length; j++) {
-				const result = batchResults[j]
-				if (result) {
-					results.push(result)
-					completed++
-					if (onProgress) {
-						const file = batch[j]
-						if (file) {
-							onProgress(completed, total, file.filepath, result.error === null)
-						}
-					}
-				}
-			}
-		}
-
-		return results
+		return batch(this.createChunkFileFunction(), files, {
+			...this.defaultOptions,
+			...options,
+		})
 	}
 
 	async *chunkBatchStream(
 		files: FileInput[],
 		options?: BatchOptions,
 	): AsyncGenerator<BatchResult> {
-		const { concurrency = 10, onProgress, ...chunkOptions } = options ?? {}
-		const mergedOptions = { ...this.defaultOptions, ...chunkOptions }
-		const total = files.length
-
-		const processFile = async (file: FileInput): Promise<BatchResult> => {
-			try {
-				const fileOptions = { ...mergedOptions, ...file.options }
-				const chunks = await this.chunk(file.filepath, file.code, fileOptions)
-				return { filepath: file.filepath, chunks, error: null }
-			} catch (error) {
-				return {
-					filepath: file.filepath,
-					chunks: null,
-					error: error instanceof Error ? error : new Error(String(error)),
-				}
-			}
-		}
-
-		let completed = 0
-
-		for (let i = 0; i < files.length; i += concurrency) {
-			const batch = files.slice(i, i + concurrency)
-			const batchResults = await Promise.all(batch.map(processFile))
-
-			for (let j = 0; j < batchResults.length; j++) {
-				const result = batchResults[j]
-				if (result) {
-					completed++
-					const file = batch[j]
-					if (onProgress && file) {
-						onProgress(completed, total, file.filepath, result.error === null)
-					}
-					yield result
-				}
-			}
-		}
+		yield* batchStream(this.createChunkFileFunction(), files, {
+			...this.defaultOptions,
+			...options,
+		})
 	}
 }
 

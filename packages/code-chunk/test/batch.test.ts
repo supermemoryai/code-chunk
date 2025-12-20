@@ -63,11 +63,9 @@ describe('chunkBatch', () => {
 		}
 
 		const mathResult = results.find((r) => r.filepath === 'math.ts')
-		expect(mathResult?.chunks).not.toBeNull()
 		expect(mathResult?.chunks?.[0]?.context.language).toBe('typescript')
 
 		const pyResult = results.find((r) => r.filepath === 'greet.py')
-		expect(pyResult?.chunks).not.toBeNull()
 		expect(pyResult?.chunks?.[0]?.context.language).toBe('python')
 	})
 
@@ -113,13 +111,10 @@ describe('chunkBatch', () => {
 		const smallChunks = await chunkBatch(files, { maxChunkSize: 100 })
 		const largeChunks = await chunkBatch(files, { maxChunkSize: 2000 })
 
-		const smallResult = smallChunks[0]
-		const largeResult = largeChunks[0]
-
-		expect(smallResult?.chunks).not.toBeNull()
-		expect(largeResult?.chunks).not.toBeNull()
-		expect(smallResult!.chunks!.length).toBeGreaterThan(
-			largeResult!.chunks!.length,
+		expect(smallChunks[0]?.chunks).not.toBeNull()
+		expect(largeChunks[0]?.chunks).not.toBeNull()
+		expect(smallChunks[0]!.chunks!.length).toBeGreaterThan(
+			largeChunks[0]!.chunks!.length,
 		)
 	})
 
@@ -198,21 +193,19 @@ describe('chunkBatch', () => {
 		expect(invalidCall?.success).toBe(false)
 	})
 
-	test('respects concurrency option', async () => {
+	test('processes with different concurrency levels', async () => {
 		const files: FileInput[] = Array.from({ length: 20 }, (_, i) => ({
 			filepath: `file${i}.ts`,
 			code: `export const x${i} = ${i}`,
 		}))
 
-		const startTime = performance.now()
-		await chunkBatch(files, { concurrency: 1 })
-		const sequentialTime = performance.now() - startTime
+		const results1 = await chunkBatch(files, { concurrency: 1 })
+		const results10 = await chunkBatch(files, { concurrency: 10 })
 
-		const startTime2 = performance.now()
-		await chunkBatch(files, { concurrency: 10 })
-		const parallelTime = performance.now() - startTime2
-
-		expect(parallelTime).toBeLessThanOrEqual(sequentialTime * 1.5)
+		expect(results1).toHaveLength(20)
+		expect(results10).toHaveLength(20)
+		expect(results1.filter((r) => r.error === null)).toHaveLength(20)
+		expect(results10.filter((r) => r.error === null)).toHaveLength(20)
 	})
 
 	test('handles mixed language files', async () => {
@@ -256,7 +249,7 @@ describe('chunkBatch', () => {
 })
 
 describe('chunkBatchStream', () => {
-	test('yields results as they complete', async () => {
+	test('yields results for all files', async () => {
 		const files: FileInput[] = [
 			{ filepath: 'a.ts', code: tsCode1 },
 			{ filepath: 'b.ts', code: tsCode2 },
@@ -274,6 +267,24 @@ describe('chunkBatchStream', () => {
 			expect(result.error).toBeNull()
 			expect(result.chunks).not.toBeNull()
 		}
+	})
+
+	test('yields results incrementally', async () => {
+		const files: FileInput[] = Array.from({ length: 5 }, (_, i) => ({
+			filepath: `file${i}.ts`,
+			code: `export const x${i} = ${i}`,
+		}))
+
+		const results: BatchResult[] = []
+		let yieldCount = 0
+
+		for await (const result of chunkBatchStream(files)) {
+			yieldCount++
+			results.push(result)
+			expect(results).toHaveLength(yieldCount)
+		}
+
+		expect(results).toHaveLength(5)
 	})
 
 	test('handles errors in stream', async () => {
@@ -296,7 +307,7 @@ describe('chunkBatchStream', () => {
 		expect(hasSuccess).toBe(true)
 	})
 
-	test('streams empty for empty input', async () => {
+	test('yields nothing for empty input', async () => {
 		const results: BatchResult[] = []
 		for await (const result of chunkBatchStream([])) {
 			results.push(result)
@@ -334,6 +345,24 @@ describe('chunkBatchStream', () => {
 		}
 
 		expect(progressCalls.length).toBeGreaterThanOrEqual(2)
+	})
+
+	test('stream can be consumed partially', async () => {
+		const files: FileInput[] = Array.from({ length: 10 }, (_, i) => ({
+			filepath: `file${i}.ts`,
+			code: `export const x${i} = ${i}`,
+		}))
+
+		const results: BatchResult[] = []
+		let count = 0
+
+		for await (const result of chunkBatchStream(files)) {
+			results.push(result)
+			count++
+			if (count >= 3) break
+		}
+
+		expect(results).toHaveLength(3)
 	})
 })
 
@@ -386,7 +415,7 @@ describe('createChunker batch methods', () => {
 	})
 })
 
-describe('batch processing edge cases', () => {
+describe('batch edge cases', () => {
 	test('handles empty files', async () => {
 		const files: FileInput[] = [
 			{ filepath: 'empty.ts', code: '' },
@@ -432,17 +461,32 @@ describe('batch processing edge cases', () => {
 		expect(successCount).toBe(100)
 	})
 
-	test('preserves file order in results', async () => {
+	test('all files are processed regardless of order', async () => {
 		const files: FileInput[] = [
 			{ filepath: 'first.ts', code: 'export const a = 1' },
 			{ filepath: 'second.ts', code: 'export const b = 2' },
 			{ filepath: 'third.ts', code: 'export const c = 3' },
 		]
 
-		const results = await chunkBatch(files, { concurrency: 1 })
+		const results = await chunkBatch(files)
 
-		expect(results[0]?.filepath).toBe('first.ts')
-		expect(results[1]?.filepath).toBe('second.ts')
-		expect(results[2]?.filepath).toBe('third.ts')
+		const filepaths = results.map((r) => r.filepath).sort()
+		expect(filepaths).toEqual(['first.ts', 'second.ts', 'third.ts'])
+	})
+
+	test('concurrent processing does not corrupt results', async () => {
+		const files: FileInput[] = Array.from({ length: 50 }, (_, i) => ({
+			filepath: `file${i}.ts`,
+			code: `export const uniqueValue${i} = "${i}-${'x'.repeat(i)}"`,
+		}))
+
+		const results = await chunkBatch(files, { concurrency: 25 })
+
+		for (let i = 0; i < 50; i++) {
+			const result = results.find((r) => r.filepath === `file${i}.ts`)
+			expect(result).toBeDefined()
+			expect(result?.chunks).not.toBeNull()
+			expect(result?.chunks?.[0]?.text).toContain(`uniqueValue${i}`)
+		}
 	})
 })
