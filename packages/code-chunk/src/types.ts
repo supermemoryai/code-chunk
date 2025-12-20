@@ -273,31 +273,24 @@ export interface ChunkOptions {
  * Interface for a chunker instance
  */
 export interface Chunker {
-	/**
-	 * Chunk source code into pieces with context
-	 * @param filepath The file path (used for language detection)
-	 * @param source The source code to chunk
-	 * @param options Chunking options
-	 * @returns Array of chunks
-	 */
 	chunk(
 		filepath: string,
 		source: string,
 		options?: ChunkOptions,
 	): Promise<Chunk[]>
 
-	/**
-	 * Stream chunks as they are generated
-	 * @param filepath The file path (used for language detection)
-	 * @param source The source code to chunk
-	 * @param options Chunking options
-	 * @returns Async iterable of chunks
-	 */
 	stream(
 		filepath: string,
 		source: string,
 		options?: ChunkOptions,
 	): AsyncIterable<Chunk>
+
+	chunkBatch(files: FileInput[], options?: BatchOptions): Promise<BatchResult[]>
+
+	chunkBatchStream(
+		files: FileInput[],
+		options?: BatchOptions,
+	): AsyncGenerator<BatchResult>
 }
 
 // ============================================================================
@@ -343,4 +336,73 @@ export interface WasmConfig {
 	 * Only include the languages you need to minimize bundle size
 	 */
 	languages: Partial<Record<Language, WasmBinary>>
+}
+
+// ============================================================================
+// Batch Processing Types
+// ============================================================================
+
+/**
+ * Input for batch processing - represents a single file to chunk
+ */
+export interface FileInput {
+	/** File path (used for language detection) */
+	filepath: string
+	/** Source code content */
+	code: string
+	/** Optional per-file chunking options (overrides batch options) */
+	options?: ChunkOptions
+}
+
+/**
+ * Successful result for a single file in batch processing
+ */
+export interface BatchFileResult {
+	/** File path that was processed */
+	filepath: string
+	/** Generated chunks */
+	chunks: Chunk[]
+	/** No error on success */
+	error: null
+}
+
+/**
+ * Error result for a single file in batch processing
+ */
+export interface BatchFileError {
+	/** File path that failed */
+	filepath: string
+	/** No chunks on error */
+	chunks: null
+	/** The error that occurred */
+	error: Error
+}
+
+/**
+ * Result for a single file in batch processing - either success or error
+ */
+export type BatchResult = BatchFileResult | BatchFileError
+
+/**
+ * Options for batch processing
+ */
+export interface BatchOptions extends ChunkOptions {
+	/**
+	 * Maximum number of files to process concurrently
+	 * @default 10
+	 */
+	concurrency?: number
+	/**
+	 * Progress callback called after each file is processed
+	 * @param completed - Number of files completed so far
+	 * @param total - Total number of files to process
+	 * @param filepath - Path of the file that was just processed
+	 * @param success - Whether the file was processed successfully
+	 */
+	onProgress?: (
+		completed: number,
+		total: number,
+		filepath: string,
+		success: boolean,
+	) => void
 }

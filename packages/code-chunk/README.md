@@ -19,6 +19,7 @@ Uses tree-sitter to split source code at semantic boundaries (functions, classes
 - **Rich context**: Scope chain, imports, siblings, entity signatures
 - **Contextualized text**: Pre-formatted for embedding models
 - **Multi-language**: TypeScript, JavaScript, Python, Rust, Go, Java
+- **Batch processing**: Process entire codebases with controlled concurrency
 - **Streaming**: Process large files incrementally
 - **Effect support**: First-class Effect integration
 
@@ -143,6 +144,48 @@ for (const file of files) {
 }
 ```
 
+### Batch Processing
+
+Process multiple files concurrently with error handling per file:
+
+```typescript
+import { chunkBatch } from 'code-chunk'
+
+const files = [
+  { filepath: 'src/user.ts', code: userCode },
+  { filepath: 'src/auth.ts', code: authCode },
+  { filepath: 'lib/utils.py', code: utilsCode },
+]
+
+const results = await chunkBatch(files, {
+  maxChunkSize: 1500,
+  concurrency: 10,
+  onProgress: (done, total, path, success) => {
+    console.log(`[${done}/${total}] ${path}: ${success ? 'ok' : 'failed'}`)
+  }
+})
+
+for (const result of results) {
+  if (result.error) {
+    console.error(`Failed: ${result.filepath}`, result.error)
+  } else {
+    await indexChunks(result.filepath, result.chunks)
+  }
+}
+```
+
+Stream results as they complete:
+
+```typescript
+import { chunkBatchStream } from 'code-chunk'
+
+for await (const result of chunkBatchStream(files, { concurrency: 5 })) {
+  if (result.chunks) {
+    await indexChunks(result.filepath, result.chunks)
+  }
+}
+```
+
 ### Effect Integration
 
 For Effect-based pipelines:
@@ -198,7 +241,43 @@ Effect-native streaming API for composable pipelines.
 
 Create a reusable chunker instance with default options.
 
-**Returns:** `Chunker` with `chunk()` and `stream()` methods
+**Returns:** `Chunker` with `chunk()`, `stream()`, `chunkBatch()`, and `chunkBatchStream()` methods
+
+---
+
+### `chunkBatch(files, options?)`
+
+Process multiple files concurrently with per-file error handling.
+
+**Parameters:**
+- `files`: Array of `{ filepath, code, options? }`
+- `options`: Batch options (extends ChunkOptions with `concurrency` and `onProgress`)
+
+**Returns:** `Promise<BatchResult[]>` where each result has `{ filepath, chunks, error }`
+
+---
+
+### `chunkBatchStream(files, options?)`
+
+Stream batch results as files complete processing.
+
+**Returns:** `AsyncGenerator<BatchResult>`
+
+---
+
+### `chunkBatchEffect(files, options?)`
+
+Effect-native batch processing.
+
+**Returns:** `Effect.Effect<BatchResult[], never>`
+
+---
+
+### `chunkBatchStreamEffect(files, options?)`
+
+Effect-native streaming batch processing.
+
+**Returns:** `Stream.Stream<BatchResult, never>`
 
 ---
 
@@ -218,7 +297,7 @@ Detect programming language from file extension.
 
 ---
 
-### Options
+### ChunkOptions
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
@@ -228,6 +307,15 @@ Detect programming language from file extension.
 | `filterImports` | `boolean` | `false` | Filter out import statements |
 | `language` | `Language` | auto | Override language detection |
 | `overlapLines` | `number` | `10` | Lines from previous chunk to include in `contextualizedText` |
+
+### BatchOptions
+
+Extends `ChunkOptions` with:
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `concurrency` | `number` | `10` | Maximum files to process concurrently |
+| `onProgress` | `function` | - | Callback `(completed, total, filepath, success) => void` |
 
 ---
 

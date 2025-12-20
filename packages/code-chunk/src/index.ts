@@ -8,6 +8,13 @@
  * @packageDocumentation
  */
 
+// Batch processing
+export {
+	chunkBatch,
+	chunkBatchEffect,
+	chunkBatchStream,
+	chunkBatchStreamEffect,
+} from './batch'
 // Main chunking function
 export {
 	ChunkingError,
@@ -26,6 +33,10 @@ export { detectLanguage, LANGUAGE_EXTENSIONS } from './parser/languages'
 // All public types
 export type {
 	ASTWindow,
+	BatchFileError,
+	BatchFileResult,
+	BatchOptions,
+	BatchResult,
 	ByteRange,
 	Chunk,
 	ChunkContext,
@@ -35,6 +46,7 @@ export type {
 	EntityInfo,
 	EntityType,
 	ExtractedEntity,
+	FileInput,
 	ImportInfo,
 	Language,
 	LineRange,
