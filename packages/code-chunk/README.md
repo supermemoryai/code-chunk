@@ -10,6 +10,7 @@ Uses tree-sitter to split source code at semantic boundaries (functions, classes
 - [How It Works](#how-it-works)
 - [Installation](#installation)
 - [Quickstart](#quickstart)
+- [Edge Runtimes (WASM)](#edge-runtimes-wasm)
 - [API Reference](#api-reference)
 - [License](#license)
 
@@ -21,6 +22,7 @@ Uses tree-sitter to split source code at semantic boundaries (functions, classes
 - **Multi-language**: TypeScript, JavaScript, Python, Rust, Go, Java
 - **Streaming**: Process large files incrementally
 - **Effect support**: First-class Effect integration
+- **Edge-ready**: Works in Cloudflare Workers and other edge runtimes via WASM
 
 ## How It Works
 
@@ -159,6 +161,81 @@ const program = Stream.runForEach(
 await Effect.runPromise(program)
 ```
 
+## Edge Runtimes (WASM)
+
+The default entry point uses Node.js APIs to load tree-sitter WASM files from the filesystem. For edge runtimes, use the `code-chunk/wasm` entry point which accepts pre-loaded WASM binaries.
+
+### Cloudflare Workers
+
+```typescript
+import { createChunker } from 'code-chunk/wasm'
+
+import treeSitterWasm from 'web-tree-sitter/tree-sitter.wasm'
+import typescriptWasm from 'tree-sitter-typescript/tree-sitter-typescript.wasm'
+import javascriptWasm from 'tree-sitter-javascript/tree-sitter-javascript.wasm'
+
+export default {
+  async fetch(request: Request): Promise<Response> {
+    const chunker = await createChunker({
+      treeSitter: treeSitterWasm,
+      languages: {
+        typescript: typescriptWasm,
+        javascript: javascriptWasm,
+      },
+    })
+
+    const code = await request.text()
+    const chunks = await chunker.chunk('input.ts', code)
+
+    return Response.json(chunks)
+  },
+}
+```
+
+### WasmConfig
+
+The `createChunker` function from `code-chunk/wasm` accepts a `WasmConfig` object:
+
+```typescript
+interface WasmConfig {
+  treeSitter: WasmBinary
+  languages: Partial<Record<Language, WasmBinary>>
+}
+
+type WasmBinary = Uint8Array | ArrayBuffer | Response | string
+```
+
+- `treeSitter`: The `web-tree-sitter` runtime WASM binary
+- `languages`: Map of language names to their grammar WASM binaries
+
+Only include the languages you need to minimize bundle size.
+
+### WASM Errors
+
+The WASM entry point throws specific errors:
+
+- **`WasmParserError`**: Parser initialization or parsing failed
+- **`WasmGrammarError`**: No WASM binary provided for requested language
+- **`WasmChunkingError`**: Chunking process failed
+- **`UnsupportedLanguageError`**: File extension not recognized
+
+```typescript
+import { 
+  WasmParserError, 
+  WasmGrammarError,
+  WasmChunkingError,
+  UnsupportedLanguageError 
+} from 'code-chunk/wasm'
+
+try {
+  const chunks = await chunker.chunk('input.ts', code)
+} catch (error) {
+  if (error instanceof WasmGrammarError) {
+    console.error(`Language not loaded: ${error.language}`)
+  }
+}
+```
+
 ## API Reference
 
 ### `chunk(filepath, code, options?)`
@@ -199,6 +276,40 @@ Effect-native streaming API for composable pipelines.
 Create a reusable chunker instance with default options.
 
 **Returns:** `Chunker` with `chunk()` and `stream()` methods
+
+---
+
+### `createChunker(config, options?)` (WASM)
+
+Create a chunker for edge runtimes with pre-loaded WASM binaries.
+
+```typescript
+import { createChunker } from 'code-chunk/wasm'
+```
+
+**Parameters:**
+- `config`: `WasmConfig` with `treeSitter` and `languages` WASM binaries
+- `options`: Optional `ChunkOptions`
+
+**Returns:** `Promise<Chunker>`
+
+**Throws:** `WasmParserError`, `WasmGrammarError`, `WasmChunkingError`, `UnsupportedLanguageError`
+
+---
+
+### `WasmParser`
+
+Low-level parser class for edge runtimes. Use this when you need direct access to parsing without chunking.
+
+```typescript
+import { WasmParser } from 'code-chunk/wasm'
+
+const parser = new WasmParser(config)
+await parser.init()
+
+const result = await parser.parse(code, 'typescript')
+console.log(result.tree.rootNode)
+```
 
 ---
 
