@@ -1,5 +1,13 @@
 import { Effect } from 'effect'
-
+import {
+	chunk as chunkInternal,
+	DEFAULT_CHUNK_OPTIONS,
+	streamChunks as streamChunksInternal,
+} from './chunking'
+import { extractEntities } from './extract'
+import { detectLanguage } from './parser/languages'
+import { WasmParser } from './parser/wasm'
+import { buildScopeTree } from './scope'
 import type {
 	Chunk,
 	Chunker,
@@ -8,22 +16,20 @@ import type {
 	WasmConfig,
 } from './types'
 
-import {
-	chunk as chunkInternal,
-	DEFAULT_CHUNK_OPTIONS,
-	streamChunks as streamChunksInternal,
-} from './chunking'
-import { extractEntities } from './extract'
-import { WasmParser } from './parser/wasm'
-import { detectLanguage } from './parser/languages'
-import { buildScopeTree } from './scope'
-
+export { formatChunkWithContext } from './context/format'
+export { detectLanguage, LANGUAGE_EXTENSIONS } from './parser/languages'
+export {
+	createWasmParser,
+	WasmGrammarError,
+	WasmParser,
+	WasmParserError,
+} from './parser/wasm'
 export type {
 	Chunk,
 	ChunkContext,
 	ChunkEntityInfo,
-	ChunkOptions,
 	Chunker,
+	ChunkOptions,
 	EntityInfo,
 	EntityType,
 	ImportInfo,
@@ -33,15 +39,6 @@ export type {
 	WasmBinary,
 	WasmConfig,
 } from './types'
-
-export { formatChunkWithContext } from './context/format'
-export {
-	WasmGrammarError,
-	WasmParser,
-	WasmParserError,
-	createWasmParser,
-} from './parser/wasm'
-export { detectLanguage, LANGUAGE_EXTENSIONS } from './parser/languages'
 
 export class WasmChunkingError extends Error {
 	readonly _tag = 'WasmChunkingError'

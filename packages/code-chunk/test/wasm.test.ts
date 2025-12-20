@@ -1,16 +1,16 @@
+import { describe, expect, test } from 'bun:test'
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
-import { describe, expect, test } from 'bun:test'
 
 import type { WasmConfig } from '../src/types'
 
 import {
+	createChunker,
+	UnsupportedLanguageError,
 	WasmChunkingError,
 	WasmGrammarError,
 	WasmParser,
 	WasmParserError,
-	createChunker,
-	UnsupportedLanguageError,
 } from '../src/wasm'
 
 async function loadWasmBinary(packagePath: string): Promise<Uint8Array> {
