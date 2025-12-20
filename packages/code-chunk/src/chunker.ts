@@ -1,13 +1,18 @@
+import {
+	chunkBatch as batchFn,
+	chunkBatchStream as batchStreamFn,
+} from './batch'
 import { chunk as chunkFn, chunkStream as streamFn } from './chunk'
 import { DEFAULT_CHUNK_OPTIONS } from './chunking'
-import type { Chunk, Chunker, ChunkOptions } from './types'
+import type {
+	BatchOptions,
+	BatchResult,
+	Chunk,
+	Chunker,
+	ChunkOptions,
+	FileInput,
+} from './types'
 
-/**
- * Implementation of the Chunker interface
- *
- * Provides a stateful wrapper around the chunk and stream functions that
- * stores default options and allows per-call overrides.
- */
 class ChunkerImpl implements Chunker {
 	private readonly defaultOptions: ChunkOptions
 
@@ -15,14 +20,6 @@ class ChunkerImpl implements Chunker {
 		this.defaultOptions = { ...DEFAULT_CHUNK_OPTIONS, ...options }
 	}
 
-	/**
-	 * Chunk source code into pieces with context
-	 *
-	 * @param filepath - The file path (used for language detection)
-	 * @param code - The source code to chunk
-	 * @param options - Optional overrides for chunking options
-	 * @returns Promise resolving to array of chunks
-	 */
 	async chunk(
 		filepath: string,
 		code: string,
@@ -32,14 +29,6 @@ class ChunkerImpl implements Chunker {
 		return chunkFn(filepath, code, mergedOptions)
 	}
 
-	/**
-	 * Stream chunks as they are generated
-	 *
-	 * @param filepath - The file path (used for language detection)
-	 * @param code - The source code to chunk
-	 * @param options - Optional overrides for chunking options
-	 * @returns Async iterable of chunks
-	 */
 	async *stream(
 		filepath: string,
 		code: string,
@@ -47,6 +36,22 @@ class ChunkerImpl implements Chunker {
 	): AsyncIterable<Chunk> {
 		const mergedOptions = { ...this.defaultOptions, ...options }
 		yield* streamFn(filepath, code, mergedOptions)
+	}
+
+	async chunkBatch(
+		files: FileInput[],
+		options?: BatchOptions,
+	): Promise<BatchResult[]> {
+		const mergedOptions = { ...this.defaultOptions, ...options }
+		return batchFn(files, mergedOptions)
+	}
+
+	async *chunkBatchStream(
+		files: FileInput[],
+		options?: BatchOptions,
+	): AsyncGenerator<BatchResult> {
+		const mergedOptions = { ...this.defaultOptions, ...options }
+		yield* batchStreamFn(files, mergedOptions)
 	}
 }
 

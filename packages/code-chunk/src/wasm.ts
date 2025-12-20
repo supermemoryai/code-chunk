@@ -1,31 +1,45 @@
 import { Effect } from 'effect'
-
-import type {
-	Chunk,
-	Chunker,
-	ChunkOptions,
-	Language,
-	WasmConfig,
-} from './types'
-
 import {
 	chunk as chunkInternal,
 	DEFAULT_CHUNK_OPTIONS,
 	streamChunks as streamChunksInternal,
 } from './chunking'
 import { extractEntities } from './extract'
-import { WasmParser } from './parser/wasm'
 import { detectLanguage } from './parser/languages'
+import { WasmParser } from './parser/wasm'
 import { buildScopeTree } from './scope'
+import type {
+	BatchOptions,
+	BatchResult,
+	Chunk,
+	Chunker,
+	ChunkOptions,
+	FileInput,
+	Language,
+	WasmConfig,
+} from './types'
 
+export { formatChunkWithContext } from './context/format'
+export { detectLanguage, LANGUAGE_EXTENSIONS } from './parser/languages'
+export {
+	createWasmParser,
+	WasmGrammarError,
+	WasmParser,
+	WasmParserError,
+} from './parser/wasm'
 export type {
+	BatchFileError,
+	BatchFileResult,
+	BatchOptions,
+	BatchResult,
 	Chunk,
 	ChunkContext,
 	ChunkEntityInfo,
-	ChunkOptions,
 	Chunker,
+	ChunkOptions,
 	EntityInfo,
 	EntityType,
+	FileInput,
 	ImportInfo,
 	Language,
 	LineRange,
@@ -33,15 +47,6 @@ export type {
 	WasmBinary,
 	WasmConfig,
 } from './types'
-
-export { formatChunkWithContext } from './context/format'
-export {
-	WasmGrammarError,
-	WasmParser,
-	WasmParserError,
-	createWasmParser,
-} from './parser/wasm'
-export { detectLanguage, LANGUAGE_EXTENSIONS } from './parser/languages'
 
 export class WasmChunkingError extends Error {
 	readonly _tag = 'WasmChunkingError'
@@ -172,6 +177,95 @@ class WasmChunker implements Chunker {
 				}
 			} else {
 				yield chunk
+			}
+		}
+	}
+
+	async chunkBatch(
+		files: FileInput[],
+		options?: BatchOptions,
+	): Promise<BatchResult[]> {
+		const { concurrency = 10, onProgress, ...chunkOptions } = options ?? {}
+		const mergedOptions = { ...this.defaultOptions, ...chunkOptions }
+		const total = files.length
+
+		const processFile = async (file: FileInput): Promise<BatchResult> => {
+			try {
+				const fileOptions = { ...mergedOptions, ...file.options }
+				const chunks = await this.chunk(file.filepath, file.code, fileOptions)
+				return { filepath: file.filepath, chunks, error: null }
+			} catch (error) {
+				return {
+					filepath: file.filepath,
+					chunks: null,
+					error: error instanceof Error ? error : new Error(String(error)),
+				}
+			}
+		}
+
+		const results: BatchResult[] = []
+		let completed = 0
+
+		for (let i = 0; i < files.length; i += concurrency) {
+			const batch = files.slice(i, i + concurrency)
+			const batchResults = await Promise.all(batch.map(processFile))
+
+			for (let j = 0; j < batchResults.length; j++) {
+				const result = batchResults[j]
+				if (result) {
+					results.push(result)
+					completed++
+					if (onProgress) {
+						const file = batch[j]
+						if (file) {
+							onProgress(completed, total, file.filepath, result.error === null)
+						}
+					}
+				}
+			}
+		}
+
+		return results
+	}
+
+	async *chunkBatchStream(
+		files: FileInput[],
+		options?: BatchOptions,
+	): AsyncGenerator<BatchResult> {
+		const { concurrency = 10, onProgress, ...chunkOptions } = options ?? {}
+		const mergedOptions = { ...this.defaultOptions, ...chunkOptions }
+		const total = files.length
+
+		const processFile = async (file: FileInput): Promise<BatchResult> => {
+			try {
+				const fileOptions = { ...mergedOptions, ...file.options }
+				const chunks = await this.chunk(file.filepath, file.code, fileOptions)
+				return { filepath: file.filepath, chunks, error: null }
+			} catch (error) {
+				return {
+					filepath: file.filepath,
+					chunks: null,
+					error: error instanceof Error ? error : new Error(String(error)),
+				}
+			}
+		}
+
+		let completed = 0
+
+		for (let i = 0; i < files.length; i += concurrency) {
+			const batch = files.slice(i, i + concurrency)
+			const batchResults = await Promise.all(batch.map(processFile))
+
+			for (let j = 0; j < batchResults.length; j++) {
+				const result = batchResults[j]
+				if (result) {
+					completed++
+					const file = batch[j]
+					if (onProgress && file) {
+						onProgress(completed, total, file.filepath, result.error === null)
+					}
+					yield result
+				}
 			}
 		}
 	}

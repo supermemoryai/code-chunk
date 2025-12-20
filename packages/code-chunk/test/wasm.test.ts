@@ -1,24 +1,22 @@
+import { describe, expect, test } from 'bun:test'
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
-import { describe, expect, test } from 'bun:test'
 
 import type { WasmConfig } from '../src/types'
 
 import {
+	createChunker,
+	UnsupportedLanguageError,
 	WasmChunkingError,
 	WasmGrammarError,
 	WasmParser,
 	WasmParserError,
-	createChunker,
-	UnsupportedLanguageError,
 } from '../src/wasm'
 
 async function loadWasmBinary(packagePath: string): Promise<Uint8Array> {
-	// node_modules is at monorepo root, 2 dirs up from packages/code-chunk
+	const monorepoRoot = resolve(import.meta.dir, '..', '..', '..')
 	const fullPath = resolve(
-		process.cwd(),
-		'..',
-		'..',
+		monorepoRoot,
 		'node_modules',
 		...packagePath.split('/'),
 	)
