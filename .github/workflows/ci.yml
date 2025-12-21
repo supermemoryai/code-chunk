@@ -1,6 +1,8 @@
 name: CI
 
-on: [push, pull_request]
+on:
+  pull_request:
+    branches: ["*"]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -14,6 +16,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -31,3 +35,11 @@ jobs:
 
       - name: Build
         run: bun run build
+
+      - name: Check for changeset
+        run: |
+          if git diff --name-only origin/main...HEAD | grep -q "^\.changeset/.*\.md$"; then
+            echo "✓ Changeset found"
+          else
+            echo "⚠ No changeset found. If this PR has user-facing changes, run 'bun changeset' to add one."
+          fi
