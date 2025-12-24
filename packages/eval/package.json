@@ -2,17 +2,24 @@
 	"name": "@supermemory/eval",
 	"version": "0.1.0",
 	"private": true,
-	"description": "Evaluation harness for code-chunk",
+	"description": "SWE-bench Lite retrieval-only evaluation harness for code-chunk",
 	"type": "module",
 	"scripts": {
 		"start": "bun run src/run.ts",
+		"eval": "bun run src/run.ts",
+		"eval:dev": "bun run src/run.ts --split dev",
+		"eval:quick": "bun run src/run.ts --max-instances 5",
 		"type-check": "tsc --noEmit"
 	},
 	"dependencies": {
+		"@anthropic-ai/claude-agent-sdk": "^0.1.75",
+		"@anthropic-ai/sdk": "^0.71.2",
 		"code-chunk": "workspace:*",
-		"openai": "^4.0.0"
+		"dotenv": "^16.4.0",
+		"zod": "^3.24.0"
 	},
 	"devDependencies": {
-		"@types/bun": "^1.3.4"
+		"@types/bun": "^1.3.4",
+		"typescript": "^5.0.0"
 	}
 }
