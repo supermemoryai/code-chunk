@@ -35,6 +35,11 @@ export const LANGUAGE_EXTENSIONS: Record<string, Language> = {
 	'.rs': 'rust',
 	'.go': 'go',
 	'.java': 'java',
+	'.yaml': 'yaml',
+	'.yml': 'yaml',
+	'.toml': 'toml',
+	'.json': 'json',
+	'.jsonl': 'jsonl',
 }
 
 /**
@@ -69,6 +74,19 @@ function getGrammarPath(language: Language): string {
 			return require.resolve('tree-sitter-go/tree-sitter-go.wasm')
 		case 'java':
 			return require.resolve('tree-sitter-java/tree-sitter-java.wasm')
+		case 'yaml':
+			return require.resolve(
+				'@tree-sitter-grammars/tree-sitter-yaml/tree-sitter-yaml.wasm',
+			)
+		case 'toml':
+			return require.resolve(
+				'@tree-sitter-grammars/tree-sitter-toml/tree-sitter-toml.wasm',
+			)
+		case 'json':
+			return require.resolve('tree-sitter-json/tree-sitter-json.wasm')
+		case 'jsonl':
+			// JSONL is parsed line-by-line with JSON grammar
+			return require.resolve('tree-sitter-json/tree-sitter-json.wasm')
 	}
 }
 

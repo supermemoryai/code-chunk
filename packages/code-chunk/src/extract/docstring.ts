@@ -11,6 +11,10 @@ export const COMMENT_NODE_TYPES: Record<Language, readonly string[]> = {
 	rust: ['line_comment', 'block_comment'],
 	go: ['comment'],
 	java: ['line_comment', 'block_comment'],
+	yaml: ['comment'],
+	toml: ['comment'],
+	json: [],
+	jsonl: [],
 }
 
 /**

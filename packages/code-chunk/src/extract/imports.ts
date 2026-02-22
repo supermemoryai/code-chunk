@@ -183,6 +183,12 @@ export function extractImportSymbols(
 			}
 			break
 		}
+
+		case 'yaml':
+		case 'toml':
+		case 'json':
+		case 'jsonl':
+			return entities
 	}
 
 	// If no symbols were extracted, fall back to using source as name

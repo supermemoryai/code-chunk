@@ -19,7 +19,7 @@ import {
 	loadQuerySync,
 	type QueryMatch,
 } from './queries'
-import { extractName, extractSignature } from './signature'
+import { extractName, extractSignature, stripQuotes } from './signature'
 
 /**
  * Error when entity extraction fails
@@ -118,9 +118,14 @@ function matchesToEntities(
 			}
 
 			// Extract name - prefer name node from query, fallback to extraction
-			const name = nameNode
+			// For JSON, key capture is string node with quotes; strip them
+			const rawName = nameNode
 				? nameNode.text
 				: (extractName(itemNode, language) ?? '<anonymous>')
+			const name =
+				language === 'json' && nameNode
+					? stripQuotes(rawName)
+					: rawName
 
 			// Extract signature
 			const signature = yield* extractSignature(
