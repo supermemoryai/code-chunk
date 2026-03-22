@@ -1,5 +1,7 @@
 # code-chunk
 
+[![gitcgr](https://gitcgr.com/badge/supermemoryai/code-chunk.svg)](https://gitcgr.com/supermemoryai/code-chunk)
+
 AST-aware code chunking for semantic search and RAG pipelines.
 
 Uses tree-sitter to split source code at semantic boundaries (functions, classes, methods) rather than arbitrary character limits. Each chunk includes rich context: scope chain, imports, siblings, and entity signatures.
