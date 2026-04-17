@@ -3,6 +3,7 @@ import {
 	chunk as chunkInternal,
 	streamChunks as streamChunksInternal,
 } from './chunking'
+import { chunkJsonl } from './chunking/jsonl'
 import { extractEntities } from './extract'
 import { parseCode } from './parser'
 import { detectLanguage } from './parser/languages'
@@ -60,6 +61,16 @@ const chunkEffect = (
 
 		if (!language) {
 			return yield* Effect.fail(new UnsupportedLanguageError(filepath))
+		}
+
+		// JSONL: line-based chunking without full-file AST
+		if (language === 'jsonl') {
+			const jsonlChunks = yield* Effect.tryPromise({
+				try: () => chunkJsonl(code, options, filepath),
+				catch: (error: unknown) =>
+					new ChunkingError('Failed to chunk JSONL', error),
+			})
+			return jsonlChunks
 		}
 
 		// Step 2: Parse the code
@@ -220,10 +231,22 @@ export const chunkStreamEffect = (
 	options?: ChunkOptions,
 ): Stream.Stream<Chunk, ChunkingError | UnsupportedLanguageError> => {
 	return Stream.unwrap(
-		Effect.map(prepareChunking(filepath, code, options), (prepared) => {
-			const { parseResult, scopeTree, language } = prepared
-
-			// Create stream from the internal generator
+		Effect.gen(function* () {
+			const language: Language | null =
+				options?.language ?? detectLanguage(filepath)
+			if (!language) {
+				yield* Effect.fail(new UnsupportedLanguageError(filepath))
+			}
+			if (language === 'jsonl') {
+				const chunks = yield* Effect.tryPromise({
+					try: () => chunkJsonl(code, options ?? {}, filepath),
+					catch: (error: unknown) =>
+						new ChunkingError('Failed to chunk JSONL', error),
+				})
+				return Stream.fromIterable(chunks)
+			}
+			const prepared = yield* prepareChunking(filepath, code, options)
+			const { parseResult, scopeTree } = prepared
 			return Stream.fromAsyncIterable(
 				streamChunksInternal(
 					parseResult.tree.rootNode,
@@ -235,7 +258,6 @@ export const chunkStreamEffect = (
 				),
 				(error) => new ChunkingError('Stream iteration failed', error),
 			).pipe(
-				// Attach parse error to chunks if present
 				Stream.map((chunk) =>
 					parseResult.error
 						? {
@@ -280,12 +302,23 @@ export async function* chunkStream(
 	code: string,
 	options?: ChunkOptions,
 ): AsyncGenerator<Chunk> {
+	const language: Language | null =
+		options?.language ?? detectLanguage(filepath)
+	if (!language) {
+		throw new UnsupportedLanguageError(filepath)
+	}
+	if (language === 'jsonl') {
+		const chunks = await chunkJsonl(code, options ?? {}, filepath)
+		yield* chunks
+		return
+	}
+
 	// Prepare the chunking pipeline
 	const prepared = await Effect.runPromise(
 		prepareChunking(filepath, code, options),
 	)
 
-	const { parseResult, scopeTree, language } = prepared
+	const { parseResult, scopeTree } = prepared
 
 	// Stream chunks from the internal generator
 	const chunkGenerator = streamChunksInternal(

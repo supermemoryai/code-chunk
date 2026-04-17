@@ -1013,6 +1013,10 @@ function finalize(item: TransformedItem): Result {
 				path: 'Test.java',
 				code: 'public class Test { int corge() { return 6; } }',
 			},
+			{ path: 'config.yaml', code: 'run:\n  timeout: 5m' },
+			{ path: 'Cargo.toml', code: '[package]\nname = "x"' },
+			{ path: 'pkg.json', code: '{"name": "x", "version": "1.0"}' },
+			{ path: 'data.jsonl', code: '{"id": 1}\n{"id": 2}' },
 		]
 
 		for (const sample of samples) {
@@ -1079,6 +1083,74 @@ describe('integration: error handling', () => {
 			// Should not throw - parser recovers
 			const chunks = await chunk(sample.path, sample.code)
 			expect(chunks).toBeDefined()
+		}
+	})
+})
+
+describe('integration: YAML, TOML, JSON, JSONL', () => {
+	test('chunks YAML with section context', async () => {
+		const code = `run:
+  concurrency: 8
+  timeout: 10m
+output:
+  format: colored
+linters:
+  enable: [errcheck]
+`
+		const chunks = await chunk('config.yaml', code)
+		expect(chunks.length).toBeGreaterThan(0)
+		const allEntities = chunks.flatMap((c) => c.context.entities)
+		const sectionNames = allEntities.map((e) => e.name)
+		expect(sectionNames).toContain('run')
+		expect(sectionNames).toContain('output')
+		expect(sectionNames).toContain('linters')
+		for (const c of chunks) {
+			expect(c.context.language).toBe('yaml')
+		}
+	})
+
+	test('chunks TOML with section context', async () => {
+		const code = `[package]
+name = "myapp"
+version = "0.1.0"
+
+[dependencies]
+serde = "1.0"
+`
+		const chunks = await chunk('Cargo.toml', code)
+		expect(chunks.length).toBeGreaterThan(0)
+		const allEntities = chunks.flatMap((c) => c.context.entities)
+		expect(allEntities.some((e) => e.type === 'section')).toBe(true)
+		for (const c of chunks) {
+			expect(c.context.language).toBe('toml')
+		}
+	})
+
+	test('chunks JSON with section context', async () => {
+		const code = `{"name": "app", "version": "1.0", "scripts": {"start": "node index.js"}}`
+		const chunks = await chunk('package.json', code)
+		expect(chunks.length).toBeGreaterThan(0)
+		const allEntities = chunks.flatMap((c) => c.context.entities)
+		const names = allEntities.map((e) => e.name)
+		expect(names).toContain('name')
+		expect(names).toContain('version')
+		expect(names).toContain('scripts')
+		for (const c of chunks) {
+			expect(c.context.language).toBe('json')
+		}
+	})
+
+	test('chunks JSONL by lines', async () => {
+		const code = `{"id": 1, "name": "first"}
+{"id": 2, "name": "second"}
+{"id": 3, "name": "third"}
+`
+		const chunks = await chunk('data.jsonl', code)
+		expect(chunks.length).toBeGreaterThan(0)
+		const fullText = chunks.map((c) => c.text).join('')
+		expect(fullText.trimEnd()).toBe(code.trimEnd())
+		for (const c of chunks) {
+			expect(c.context.language).toBe('jsonl')
 		}
 	})
 })

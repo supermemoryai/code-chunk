@@ -10,6 +10,10 @@ export type Language =
 	| 'rust'
 	| 'go'
 	| 'java'
+	| 'yaml'
+	| 'toml'
+	| 'json'
+	| 'jsonl'
 
 /**
  * Types of entities that can be extracted from source code
@@ -23,6 +27,7 @@ export type EntityType =
 	| 'enum'
 	| 'import'
 	| 'export'
+	| 'section'
 
 /**
  * A range of lines in the source code (0-indexed, inclusive)

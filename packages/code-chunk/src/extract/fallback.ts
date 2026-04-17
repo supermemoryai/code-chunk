@@ -58,6 +58,10 @@ export const ENTITY_NODE_TYPES: Record<Language, readonly string[]> = {
 		'enum_declaration',
 		'import_declaration',
 	],
+	yaml: ['block_mapping_pair'],
+	toml: ['table', 'table_array_element', 'pair'],
+	json: ['pair'],
+	jsonl: [], // Entities built from line-by-line parse, not from AST walk
 }
 
 /**
@@ -105,6 +109,12 @@ export const NODE_TYPE_TO_ENTITY_TYPE: Record<string, EntityType> = {
 
 	// Impl blocks (Rust - treat as class-like)
 	impl_item: 'class',
+
+	// Data formats: top-level sections
+	block_mapping_pair: 'section',
+	table: 'section',
+	table_array_element: 'section',
+	pair: 'section',
 }
 
 /**
@@ -155,6 +165,33 @@ function walkAndExtract(
 
 			// Check if this node is an entity type
 			if (isEntityNodeType(node.type, language)) {
+				// YAML: only top-level block_mapping_pair (direct child of document's block_mapping)
+				if (
+					language === 'yaml' &&
+					node.type === 'block_mapping_pair' &&
+					!(node.parent?.type === 'block_mapping' && node.parent?.parent?.type === 'document')
+				) {
+					// Not top-level, continue to children
+					const children = node.namedChildren
+					for (let i = children.length - 1; i >= 0; i--) {
+						const child = children[i]
+						if (child) stack.push({ node: child, parentName })
+					}
+					continue
+				}
+				// JSON: only top-level pair (direct child of document's object)
+				if (
+					language === 'json' &&
+					node.type === 'pair' &&
+					!(node.parent?.type === 'object' && node.parent?.parent?.type === 'document')
+				) {
+					const children = node.namedChildren
+					for (let i = children.length - 1; i >= 0; i--) {
+						const child = children[i]
+						if (child) stack.push({ node: child, parentName })
+					}
+					continue
+				}
 				// Skip if we've already processed this node
 				if (entityNodes.has(node.id)) {
 					continue
@@ -207,7 +244,8 @@ function walkAndExtract(
 							entityType === 'class' ||
 							entityType === 'interface' ||
 							entityType === 'function' ||
-							entityType === 'method'
+							entityType === 'method' ||
+							entityType === 'section'
 								? name
 								: parentName
 
