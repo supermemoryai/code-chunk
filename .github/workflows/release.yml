@@ -20,7 +20,8 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          registry-url: "https://registry.npmjs.org"
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -58,8 +59,5 @@ jobs:
 
       - name: Publish
         if: steps.version-check.outputs.changed == 'true'
-        run: npm publish --access public
+        run: npm publish --access public --provenance
         working-directory: packages/code-chunk
-        env:
-          NPM_CONFIG_PROVENANCE: true
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
