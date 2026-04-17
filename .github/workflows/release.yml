@@ -1,23 +1,26 @@
-name: Release
+name: Publish Package
 
 on:
   push:
-    tags:
-      - 'v*'
-
-permissions:
-  contents: write
-  id-token: write
+    branches:
+      - main
+    paths:
+      - "packages/code-chunk/package.json"
 
 jobs:
-  release:
-    name: Release Package
+  publish:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          fetch-depth: 0
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -36,15 +39,9 @@ jobs:
       - name: Build
         run: bun run build
 
-      - name: Generate changelog
-        run: bunx changelogithub
-        continue-on-error: true
+      - name: Publish
+        run: npm publish --access public
+        working-directory: packages/code-chunk
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish to npm
-        run: bun publish --access public
-        working-directory: packages/astchunk
-        env:
-          NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
