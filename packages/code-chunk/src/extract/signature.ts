@@ -11,6 +11,10 @@ export const BODY_DELIMITERS: Record<Language, string> = {
 	rust: '{',
 	go: '{',
 	java: '{',
+	yaml: ':',
+	toml: '=',
+	json: ':',
+	jsonl: ':',
 }
 
 /**
@@ -33,8 +37,38 @@ const NAME_NODE_TYPES: readonly string[] = [
  */
 export const extractName = (
 	node: SyntaxNode,
-	_language: Language,
+	language: Language,
 ): string | null => {
+	// YAML: block_mapping_pair has field "key" (block_node or flow_node, often plain_scalar)
+	if (language === 'yaml') {
+		const keyNode = node.childForFieldName('key')
+		if (keyNode) return keyNode.text.trim()
+	}
+
+	// TOML: table/table_array_element have key in brackets; pair has key before "="
+	if (language === 'toml') {
+		const keyNode =
+			node.childForFieldName('key') ??
+			node.namedChildren.find(
+				(c) =>
+					c.type === 'dotted_key' ||
+					c.type === 'bare_key' ||
+					c.type === 'quoted_key',
+			)
+		if (keyNode) {
+			const raw = keyNode.text
+			return raw.startsWith('"') || raw.startsWith("'")
+				? stripQuotes(raw)
+				: raw
+		}
+	}
+
+	// JSON: pair has field "key" (string node with quotes)
+	if (language === 'json') {
+		const keyNode = node.childForFieldName('key')
+		if (keyNode?.type === 'string') return stripQuotes(keyNode.text)
+	}
+
 	// Try to find a named child that is an identifier
 	for (const nameType of NAME_NODE_TYPES) {
 		const nameNode = node.childForFieldName(nameType)
@@ -334,6 +368,15 @@ export const extractSignature = (
 			case 'export':
 				return extractImportExportSignature(node, code)
 
+			case 'section': {
+				const nodeText = code.slice(node.startIndex, node.endIndex)
+				const firstNewline = nodeText.indexOf('\n')
+				if (firstNewline !== -1) {
+					return cleanSignature(nodeText.slice(0, firstNewline))
+				}
+				return cleanSignature(nodeText)
+			}
+
 			default: {
 				// Fallback: extract first line
 				const nodeText = code.slice(node.startIndex, node.endIndex)
@@ -489,6 +532,12 @@ export const extractImportSource = (
 			}
 			break
 		}
+
+		case 'yaml':
+		case 'toml':
+		case 'json':
+		case 'jsonl':
+			return null
 	}
 
 	// Fallback: look for any string-like child
@@ -530,7 +579,7 @@ const extractRustUsePath = (node: SyntaxNode): string => {
 /**
  * Strip surrounding quotes from a string
  */
-const stripQuotes = (str: string): string => {
+export const stripQuotes = (str: string): string => {
 	if (
 		(str.startsWith('"') && str.endsWith('"')) ||
 		(str.startsWith("'") && str.endsWith("'")) ||

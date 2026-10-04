@@ -494,11 +494,18 @@ class Bar {
 			'rust',
 			'go',
 			'java',
+			'yaml',
+			'toml',
+			'json',
+			'jsonl',
 		]
 
 		for (const lang of languages) {
 			expect(ENTITY_NODE_TYPES[lang]).toBeDefined()
-			expect(ENTITY_NODE_TYPES[lang].length).toBeGreaterThanOrEqual(3)
+			// jsonl has no AST entity types (line-based); others have at least 1
+			if (lang !== 'jsonl') {
+				expect(ENTITY_NODE_TYPES[lang].length).toBeGreaterThanOrEqual(1)
+			}
 		}
 	})
 })
@@ -1671,5 +1678,72 @@ function third() {}`
 		// Methods follow
 		const methodNames = entities.slice(1).map((e) => e.name)
 		expect(methodNames).toEqual(['methodA', 'methodB'])
+	})
+})
+
+// ============================================================================
+// YAML, TOML, JSON section extraction
+// ============================================================================
+
+describe('YAML, TOML, JSON section extraction', () => {
+	test('extracts YAML top-level keys as section entities', async () => {
+		const code = `run:
+  timeout: 10m
+output:
+  format: colored
+`
+		const result = await parseCode(code, 'yaml')
+		const entities = await extractEntitiesAsync(
+			result.tree.rootNode,
+			'yaml',
+			code,
+		)
+		expect(entities.length).toBeGreaterThanOrEqual(2)
+		const names = entities.map((e) => e.name)
+		expect(names).toContain('run')
+		expect(names).toContain('output')
+		for (const e of entities) {
+			expect(e.type).toBe('section')
+		}
+	})
+
+	test('extracts TOML tables and root pairs as section entities', async () => {
+		const code = `name = "app"
+
+[server]
+port = 8080
+
+[[items]]
+id = 1
+`
+		const result = await parseCode(code, 'toml')
+		const entities = await extractEntitiesAsync(
+			result.tree.rootNode,
+			'toml',
+			code,
+		)
+		expect(entities.length).toBeGreaterThanOrEqual(2)
+		const names = entities.map((e) => e.name)
+		expect(names).toContain('name')
+		expect(names.some((n) => n === 'server' || n === 'items')).toBe(true)
+		for (const e of entities) {
+			expect(e.type).toBe('section')
+		}
+	})
+
+	test('extracts JSON top-level object keys as section entities', async () => {
+		const code = `{"name": "test", "version": "1.0", "count": 42}`
+		const result = await parseCode(code, 'json')
+		const entities = await extractEntitiesAsync(
+			result.tree.rootNode,
+			'json',
+			code,
+		)
+		expect(entities.length).toBe(3)
+		const names = entities.map((e) => e.name).sort()
+		expect(names).toEqual(['count', 'name', 'version'])
+		for (const e of entities) {
+			expect(e.type).toBe('section')
+		}
 	})
 })

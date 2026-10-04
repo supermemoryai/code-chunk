@@ -9,6 +9,7 @@ import {
 } from 'effect'
 import { ChunkingError, UnsupportedLanguageError } from './chunk'
 import { chunk as chunkInternal } from './chunking'
+import { chunkJsonl } from './chunking/jsonl'
 import { extractEntities } from './extract'
 import { parseCode } from './parser'
 import { detectLanguage } from './parser/languages'
@@ -166,6 +167,14 @@ const nativeChunkFile: ChunkFileFunction = (filepath, code, options) => {
 
 		if (!language) {
 			return yield* Effect.fail(new UnsupportedLanguageError(filepath))
+		}
+
+		if (language === 'jsonl') {
+			return yield* Effect.tryPromise({
+				try: () => chunkJsonl(code, options, filepath),
+				catch: (error: unknown) =>
+					new ChunkingError('Failed to chunk JSONL', error),
+			})
 		}
 
 		const parseResult = yield* Effect.tryPromise({

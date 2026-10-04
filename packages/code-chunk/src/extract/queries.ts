@@ -481,6 +481,26 @@ const JAVA_QUERY = `; Java Entity Extraction Queries
         name: (identifier) @name) @item)
 `
 
+const YAML_QUERY = `; YAML top-level keys (block_mapping_pair with key; filter to top-level in fallback if needed)
+(block_mapping (block_mapping_pair key: (_) @name) @item)
+`
+
+const TOML_QUERY = `; TOML top-level: root pairs, tables, table_array_elements
+(document (pair (dotted_key) @name) @item)
+(document (pair (bare_key) @name) @item)
+(document (pair (quoted_key) @name) @item)
+(table (dotted_key) @name) @item
+(table (bare_key) @name) @item
+(table (quoted_key) @name) @item
+(table_array_element (dotted_key) @name) @item
+(table_array_element (bare_key) @name) @item
+(table_array_element (quoted_key) @name) @item)
+`
+
+const JSON_QUERY = `; JSON top-level object keys
+(document (object (pair key: (string) @name) @item))
+`
+
 /**
  * Query patterns by language - embedded as strings for portability
  */
@@ -491,6 +511,10 @@ export const QUERY_PATTERNS: Record<Language, string> = {
 	rust: RUST_QUERY,
 	go: GO_QUERY,
 	java: JAVA_QUERY,
+	yaml: YAML_QUERY,
+	toml: TOML_QUERY,
+	json: JSON_QUERY,
+	jsonl: '', // JSONL: no query, entities built from line-by-line parse
 }
 
 // =============================================================================
@@ -545,9 +569,9 @@ export const loadQuery = (
 			return cached
 		}
 
-		// Get the query pattern for this language
+		// Get the query pattern for this language (jsonl has no query)
 		const queryPattern = QUERY_PATTERNS[language]
-		if (!queryPattern) {
+		if (!queryPattern || language === 'jsonl') {
 			return null
 		}
 

@@ -64,12 +64,29 @@ describe('detectLanguage', () => {
 		expect(detectLanguage('src/Main.java')).toBe('java')
 	})
 
+	test('detects yaml from .yaml and .yml extensions', () => {
+		expect(detectLanguage('config.yaml')).toBe('yaml')
+		expect(detectLanguage('config.yml')).toBe('yaml')
+	})
+
+	test('detects toml from .toml extension', () => {
+		expect(detectLanguage('Cargo.toml')).toBe('toml')
+	})
+
+	test('detects json from .json extension', () => {
+		expect(detectLanguage('package.json')).toBe('json')
+	})
+
+	test('detects jsonl from .jsonl extension', () => {
+		expect(detectLanguage('data.jsonl')).toBe('jsonl')
+	})
+
 	test('returns null for unsupported extension', () => {
 		expect(detectLanguage('README.md')).toBeNull()
-		expect(detectLanguage('config.yaml')).toBeNull()
 		expect(detectLanguage('Makefile')).toBeNull()
-		expect(detectLanguage('data.json')).toBeNull()
 		expect(detectLanguage('.env')).toBeNull()
+		expect(detectLanguage('file.xml')).toBeNull()
+		expect(detectLanguage('file.txt')).toBeNull()
 	})
 
 	test('handles deeply nested paths correctly', () => {
@@ -857,6 +874,36 @@ function c() {}`
 			expect(node).not.toBeNull()
 			expect(node?.text).toBe('name')
 			expect(node?.type).toBe('identifier')
+		})
+	})
+
+	describe('YAML, TOML, JSON parsing', () => {
+		test('parses YAML with top-level keys', async () => {
+			const code = `run:
+  timeout: 10m
+output:
+  format: colored
+`
+			const result = await parseCode(code, 'yaml')
+			expect(result.error).toBeNull()
+			expect(result.tree.rootNode).not.toBeNull()
+		})
+
+		test('parses TOML with table', async () => {
+			const code = `[package]
+name = "foo"
+version = "0.1.0"
+`
+			const result = await parseCode(code, 'toml')
+			expect(result.error).toBeNull()
+			expect(result.tree.rootNode).not.toBeNull()
+		})
+
+		test('parses JSON object', async () => {
+			const code = `{"name": "test", "count": 42}`
+			const result = await parseCode(code, 'json')
+			expect(result.error).toBeNull()
+			expect(result.tree.rootNode.type).toBe('document')
 		})
 	})
 })
